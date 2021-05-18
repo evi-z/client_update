@@ -1,0 +1,24 @@
+Serv:
+
+USERS:
+npm
+AirMoon4511
+
+demon
+Xormoon1213
+
+
+MySQL:
+
+Plugin-passwd: PostNevis11!
+
+USER:
+npm@localhost
+Xormoon12345!
+
+
+PHPMyAdmon:
+
+Пароль приложния: Xormoon1213
+
+
