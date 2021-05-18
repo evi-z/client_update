@@ -1,0 +1,12 @@
+iptables -A OUTPUT -m state --state RELATED,ESTABLISHED -j ACCEPT
+itpables -A OUTPUT  -m owner --uid-owner `id -u npm` -j REJECT
+itpables -A INPUT -p tcp --dport 50000:60000 -j ACCEPT
+itpables  -P INPUT DROP
+itpables -A INPUT -p tcp --dport 5684 -j ACCEPT
+itpables -A INPUT -p tcp --dport 80 -j ACCEPT
+itpables -A INPUT -p tcp --dport 443 -j ACCEPT
+itpables -A INPUT -p tcp --dport 14422 -j ACCEPT  # PORT_DEMON
+iptables -A INPUT -p tcp --dport 12342 -j ACCEPT  # SQL_DEMON
+iptables -A INPUT -p tcp --dport 11516 -j ACCEPT  # AUTHORIZATION_DEMON
+
+Путь /etc/iptables-conf/   # Настройки iptables
