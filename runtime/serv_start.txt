@@ -1,0 +1,87 @@
+Пользователь:
+
+useradd -M -s /bin/false npm
+
+-M - не создавать домашнюю папку
+-s /bin/false - переопределяет оболочку юзера (делает неактивным для SSH)
+
+passwd npmps
+
+# Права доступа к папке
+chmod ugo+rwx папка
+
+
+SSH:
+В sshd_config (/etc/ssh/sshd_config) ставим:
+
+GatewayPorts=yes
+* Делаем возможным перенаправление портов
+
+service ssh restart
+* Перезапускаем службу
+
+
+Фаерволл:
+iptables -A OUTPUT -m state --state RELATED,ESTABLISHED -j ACCEPT
+itpables -A OUTPUT  -m owner --uid-owner `id -u npm` -j REJECT
+itpables -A INPUT -p tcp --dport 50000:60000 -j ACCEPT
+itpables  -P INPUT DROP
+itpables -A INPUT -p tcp --dport 5684 -j ACCEPT
+itpables -A INPUT -p tcp --dport 80 -j ACCEPT
+itpables -A INPUT -p tcp --dport 443 -j ACCEPT
+itpables -A INPUT -p tcp --dport 14422 -j ACCEPT  # PORT_DEMON
+iptables -A INPUT -p tcp --dport 12342 -j ACCEPT  # SQL_DEMON
+iptables -A INPUT -p tcp --dport 11516 -j ACCEPT  # AUTHORIZATION_DEMON
+
+
+SQL:
+apt update
+apt install mysql-server mysql-client
+systemctl status mysql
+
+mysql_secure_installation
+Y - Y - Y 
+
+# Создание DB
+CREATE DATABASE nevis_npm;
+
+
+# Пользователь MySQL
+CREATE USER 'npm'@'localhost' IDENTIFIED BY 'пароль';
+GRANT ALL PRIVILEGES ON nevis_npm.* TO 'npm'@'localhost';
+GRANT SELECT,UPDATE,INSERT,DELETE ON nevis_npm.* TO 'npm'@'localhost';
+
+# Проверить GRANT ALL PRIVILEGES ON *.* TO 'phpadmin'@'localhost' WITH GRANT OPTION;
+
+# Проверка
+SHOW GRANTS FOR 'npm'@'localhost'
+SELECT User,Host FROM mysql.user;
+
+FLUSH PRIVILEGES; # Обновление таблицы в памяти
+
+# Таблица аптек
+create table pharmacy(id int primary key auto_increment, pharmacy smallint unsigned, device smallint unsigned, port smallint unsigned, last_update timestamp default now(), connect_status bool default true);
+
+# Таблица пользователей mysql
+create table auth(id int primary key auto_increment, login varchar(60) unique, password varchar(60), creation datetime default now(), last_login timestamp, user_list smallint unsigned, validity_period date, gr varchar(60), active bool default true);
+
+# Таблица групп модерации аптек
+create table show_group_pharmacy(id int primary key auto_increment, login varchar(60), manage smallint unsigned);
+
+
+create table office(id int primary key auto_increment, name varchar(80), subgroup varchar(80), port smallint unsigned, last_update timestamp default now(), connect_status bool default true);
+
+create table show_group_office(id int primary key auto_increment, login varchar(60), manage smallint unsigned);
+
+
+Python:
+apt install python3-pip
+pip3 install pymysql
+pip3 install bcrypt
+
+/usr/local/bin/demons
+
+
+Осталось:
+Добавить в автозагрузку
+Развернуть PHPMyAdmin
