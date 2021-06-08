@@ -10,6 +10,7 @@ PASSWORD_KEY = 'password'
 SERVER_KEY = 'server'
 
 PORT_DEMON_PORT = 14422
+LOCAL_VNC_PORT = 11115
 
 # Ключи словаря client TODO
 GROUP_KEY = 'group'
@@ -46,7 +47,7 @@ BMC_FILE_NAME = 'BMCClient.exe'
 
 # Сопровождающие файлы
 KEY_REG_NAME = 'key.reg'
-VNC_SRV_REG_NAME = 'vnc_serv.reg'
+VNC_SERVICE_REG_NAME = 'vnc_service.reg'
 
 # Имена процессов
 PROCESS_NAME_CLIENT = 'python'
@@ -72,7 +73,7 @@ LOG_FILE_PATH = os.path.join(RUNTIME_DIR_NAME, LOG_NAME)
 PLINK_FILE_PATH = os.path.join(SOFT_DIR_NAME, PLINK_NAME)
 TVNSERVER_FILE_PATH = os.path.join(SOFT_DIR_NAME, TVNSERVER_NAME)
 KEY_REG_PATH = os.path.join(BIN_DIR_NAME, KEY_REG_NAME)
-VNC_SRV_REG_PATH = os.path.join(BIN_DIR_NAME, VNC_SRV_REG_NAME)
+VNC_SERVICE_REG_FILE = os.path.join(BIN_DIR_NAME, VNC_SERVICE_REG_NAME)
 
 # Абсолютные пути
 UPDATE_GIT_PATH = os.path.join(ROOT_PATH, BIN_DIR_NAME, 'update')
