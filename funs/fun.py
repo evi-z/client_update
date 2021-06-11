@@ -251,6 +251,17 @@ def mkdrir_runtime():
 
 # Проверяет, не запущенн ли уже client
 def control_clone_client():
+    runs, proc = get_client_run()  # Узнаём, запущен ли client и получаем proc (psutil)
+    if runs:  # Если запущен
+        proc.terminate()  # Завершение работы процесса
+        print_log(f'Попытка запуска второй копии client, процесс {proc.pid} завершён')
+
+    write_pid_file()  # Пишем pid
+    print_log(f'Запущен client с идентификатором {os.getpid()}')  # Пишем лог
+
+
+# Возвращает, запущен ли client и proc (psutil), если запущен
+def get_client_run():
     if os.path.exists(PID_FILE_PATH):  # Если pid-файл существует
         with open(PID_FILE_PATH, 'r') as pid_file:
             pid_from_file = int(pid_file.read())  # Читаем pid из файла
@@ -258,15 +269,9 @@ def control_clone_client():
             for proc in psutil.process_iter():  # Проходим по работающим процессам
                 # Если уже запущен процесс с таким идентификатором и имя процесса совпадает с cmd (shell)
                 if pid_from_file == proc.pid and PROCESS_NAME_CLIENT in proc.name():
-                    proc.terminate()  # Завершение работы процесса
-                    print_log(f'Попытка запуска второй копии client, процесс {proc.pid} завершён')
+                    return True, proc
 
-            write_pid_file()  # Пишем pid
-            print_log(f'Запущен client с идентификатором {os.getpid()}')  # Пишем лог
-
-    else:  # Если не существует
-        write_pid_file()  # Пишем pid
-        print_log(f'Запущен client с идентификатором {os.getpid()}')  # Пишем лог
+    return False, None
 
 
 # Создаёт (перезаписывает) PID файл
@@ -308,14 +313,19 @@ def replace_slash_to_backslash(ls):
 def init_scripts(init_tuple):
     group, pharmacy_or_subgroup, device_or_name = init_tuple
 
-    reg_dict = get_reg_dict()  # Получаем словрь ключей реестра
+    reg_dict, first_init_flag = get_reg_dict()  # Получаем словрь ключей реестра и флаг первичной инициализации
 
-    last_run = float(reg_dict[REG_LAST_RUN_KEY])  # Время последнего запуска
+    if group == GROUP_PHARMACY_INT:  # Если группа - Аптеки
+        if first_init_flag:  # Если инициализация - первичная
+            init_ip_config((pharmacy_or_subgroup, device_or_name))  # Запускаем pc_config
 
-    if group == GROUP_PHARMACY_INT and need_init_pc_config(last_run):  # Если группа Аптеки
-        init_ip_config((pharmacy_or_subgroup, device_or_name))
+        else:  # Если не первичная
+            last_run = float(reg_dict[REG_LAST_RUN_KEY])  # Получаем время последнего запуска
 
-    set_lsat_run()  # Устанавливает время последнего запуска
+            if need_init_pc_config(last_run):  # Если необходимо выполнить pc_config
+                init_ip_config((pharmacy_or_subgroup, device_or_name))  # Выполняем
+
+    set_last_run()  # Устанавливаем время последнего запуска
 
 
 # Инициализирует работу ip_config скрипта
@@ -331,7 +341,7 @@ def init_ip_config(init_tuple):
 
 # Возращает, необходимо ли инициализировать pc_config, искходя из времени последнего запуска
 def need_init_pc_config(last_run):
-    now = time.time()  # Текущее время
+    now = time.time()  # Текущее время (с начала эпохи)
     uptime = psutil.boot_time()  # Время, которе запущена ОС
 
     # Если после перезагрузки не было сканирования

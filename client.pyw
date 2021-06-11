@@ -48,7 +48,7 @@ except Exception as e:
     print_error(f'Ошибка в инициализации loader: {e}')
 
 # Время проверки переподключения
-RECONNECT_CHECK_TIME = 90
+RECONNECT_CHECK_TIME = 20
 
 # Порты демонов port_demon
 PORT_DEMON_ONE_PORT = 14421

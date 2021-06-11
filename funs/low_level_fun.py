@@ -43,40 +43,41 @@ def first_init_reg_keys():
     k = reg.CreateKeyEx(reg.HKEY_CURRENT_USER, REG_ROOT_PATH, 0, reg.KEY_ALL_ACCESS)
 
     reg.SetValueEx(k, REG_VERSION_KEY, 0, reg.REG_SZ, APP_VERSION)  # Версия программы
-    set_lsat_run()  # Время захода
 
     return k
 
 
 # Возвращает словарь реестра программы
 def get_reg_dict():
-    try:
+    first_init_flag = False  # Флаг первичной инициализации
+    try:  # Пытаемя открыть раздел еестра
         k = reg.OpenKey(reg.HKEY_CURRENT_USER, REG_ROOT_PATH, 0, reg.KEY_ALL_ACCESS)
+
     except FileNotFoundError:  # Если раздела не существует
         k = first_init_reg_keys()  # Проводим первичную инициализацию
+        first_init_flag = True  # Устанавливаем флаг первичной инициализации в True
 
     count_keys = reg.QueryInfoKey(k)[1]  # Колличество ключей раздела реестра
 
-    reg_dict = {}
+    reg_dict = {}  # Словаь ключей реестра
     for index in range(count_keys):  # Проходим по ключам
         key, value, types = reg.EnumValue(k, index)
-
         reg_dict[key] = value  # Пишем ключ - значение
 
-    return reg_dict
+    return reg_dict, first_init_flag
 
 
 # Устанавливает значение в реестр (по пути REG_ROOT)
 def set_reg_key(key, value):
     k = reg.OpenKey(reg.HKEY_CURRENT_USER, REG_ROOT_PATH, 0, reg.KEY_ALL_ACCESS)
 
-    reg.SetValueEx(k, key, 0, reg.REG_SZ, value)
+    reg.SetValueEx(k, key, 0, reg.REG_SZ, value)  # Устанавливаем значение в реестр
 
 
 # Устанавливает время последнего запуска программы в реестр
-def set_lsat_run():
-    now = str(time.time())
-    set_reg_key(REG_LAST_RUN_KEY, now)
+def set_last_run():
+    now = str(time.time())  # Получаем текущее время (с начала эпохи)
+    set_reg_key(REG_LAST_RUN_KEY, now)  # Устанавливаем в реестр
 
 
 # Запускает "первичныe скрипты"
@@ -121,7 +122,7 @@ def first_popen():
 def path_to_client_with_space():
     path_to_script = sys.argv[0]  # Пусть к клиенту
 
-    if ' ' in path_to_script:
+    if ' ' in path_to_script:  # Если есть пробелы в пути
         return True
     else:
         return False
@@ -129,8 +130,8 @@ def path_to_client_with_space():
 
 # Возвращяет корректный путь до клиента (экранирование пробелов в пути)
 def get_correct_path():
-    if path_to_client_with_space():
-        path_to_script = f'"{sys.argv[0]}"'
+    if path_to_client_with_space():  # Если в пути есть пробелы
+        path_to_script = f'"{sys.argv[0]}"'  # Пишем в кавычках
     else:
         path_to_script = sys.argv[0]
 
