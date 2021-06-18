@@ -316,16 +316,38 @@ def init_scripts(init_tuple):
     reg_dict, first_init_flag = get_reg_dict()  # Получаем словрь ключей реестра и флаг первичной инициализации
 
     if group == GROUP_PHARMACY_INT:  # Если группа - Аптеки
+        # Проверка инициализации pc_config
         if first_init_flag:  # Если инициализация - первичная
             init_ip_config((pharmacy_or_subgroup, device_or_name))  # Запускаем pc_config
 
         else:  # Если не первичная
             last_run = float(reg_dict[REG_LAST_RUN_KEY])  # Получаем время последнего запуска
 
-            if need_init_pc_config(last_run):  # Если необходимо выполнить pc_config
+            if need_init_pc_config_and_kkm_data(last_run):  # Если необходимо выполнить pc_config
                 init_ip_config((pharmacy_or_subgroup, device_or_name))  # Выполняем
 
+        # Проверка инициализации kkm_data
+        if device_or_name in KASSA_DICT.values():
+            if first_init_flag:  # Если инициализация - первичная
+                init_kkm_data((pharmacy_or_subgroup, device_or_name))
+
+            else:
+                last_run = float(reg_dict[REG_LAST_RUN_KEY])  # Получаем время последнего запуска
+
+                if need_init_pc_config_and_kkm_data(last_run):  # Если необходимо выполнить kkm_data
+                    init_kkm_data((pharmacy_or_subgroup, device_or_name))
+
     set_last_run()  # Устанавливаем время последнего запуска
+
+
+def init_kkm_data(init_tuple):
+    pharmacy, kassa = init_tuple
+
+    # Отправляем номер аптеки и устройство аргументами коммандной строки
+    Popen([sys.executable, os.path.join(ROOT_PATH, SCRIPTS_DIR_NAME, KKM_STRIX_MODULE_NAME), pharmacy, kassa])
+
+    print_log(f'Был выполнен скрипт {KKM_STRIX_MODULE_NAME}')  # Пишем лог
+    time.sleep(1)  # Необходимо для корректой отработки
 
 
 # Инициализирует работу ip_config скрипта
@@ -340,7 +362,7 @@ def init_ip_config(init_tuple):
 
 
 # Возращает, необходимо ли инициализировать pc_config, искходя из времени последнего запуска
-def need_init_pc_config(last_run):
+def need_init_pc_config_and_kkm_data(last_run):
     now = time.time()  # Текущее время (с начала эпохи)
     uptime = psutil.boot_time()  # Время, которе запущена ОС
 

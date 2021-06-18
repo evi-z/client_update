@@ -28,11 +28,14 @@ DATA_DICT_KEY = 'data'
 # Режимы работы
 PORT_MODE = 'port'
 SETTINGS_MODE = 'settings'
+CONFIGURATION_MODE = 'configuration'
+KKM_STRIX_MODE = 'kkm_strix'
 
 # Модули
 UPDATER_MODULE_NAME = 'updater.py'
 CLIENT_MODULE_NAME = 'client.pyw'
 PC_CONFIG_MODULE_NAME = 'pc_config.py'
+KKM_STRIX_MODULE_NAME = 'strix.py'
 
 # Наименования файлов
 CONFIG_NAME = 'settings.ini'
@@ -96,7 +99,11 @@ KASSA2 = 'Касса 2'
 KASSA3 = 'Касса 3'
 KASSA4 = 'Касса 4'
 KASSA5 = 'Касса 5'
+KASSA6 = 'Касса 6'
+KASSA7 = 'Касса 7'
 MINISERVER = 'Сервер'
+KOMZAV2 = 'КомЗав 2'
+KOMZAV3 = 'КомЗав 3'
 
 DEVICE_DICT = {KOMZAV: '0',
                KASSA1: '1',
@@ -104,7 +111,15 @@ DEVICE_DICT = {KOMZAV: '0',
                KASSA3: '3',
                KASSA4: '4',
                KASSA5: '5',
-               MINISERVER: '99'}
+               KASSA6: '6',
+               KASSA7: '7',
+               MINISERVER: '99',
+               KOMZAV2: '102',
+               KOMZAV3: '103'}
+
+# Кассовое оборудование
+KASSA_DICT = {key: val for key, val in DEVICE_DICT.items() if key not in (KOMZAV, KOMZAV2, KOMZAV3)}
+
 
 # Текстовое представление групп
 GROUP_PHARMACY_TEXT = 'Аптеки'

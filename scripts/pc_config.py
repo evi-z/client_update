@@ -9,6 +9,8 @@ import socket
 import json
 from subprocess import run, PIPE
 
+from scripts_fun import *
+
 
 # Ключи словаря приветствия
 MODE_DICT_KEY = 'mode'
@@ -192,4 +194,7 @@ configuration_dict = {
     CPU_DICT_KEY: cpu
 }
 
-send_configuration_data(configuration_dict)  # Отправляет данные на сервер
+try:
+    send_configuration_data(configuration_dict)  # Отправляет данные на сервер
+except (ConnectionRefusedError, ConnectionResetError):
+    print_log(f'Скрипт {get_basename(__file__)} не смог отправить данные на север')
