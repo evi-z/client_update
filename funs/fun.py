@@ -344,9 +344,9 @@ def init_kkm_data(init_tuple):
     pharmacy, kassa = init_tuple
 
     # Отправляем номер аптеки и устройство аргументами коммандной строки
-    Popen([sys.executable, os.path.join(ROOT_PATH, SCRIPTS_DIR_NAME, KKM_STRIX_MODULE_NAME), pharmacy, kassa])
+    Popen([sys.executable, os.path.join(ROOT_PATH, SCRIPTS_DIR_NAME, KKM_SCRIPT_MODULE_NAME), pharmacy, kassa])
 
-    print_log(f'Был выполнен скрипт {KKM_STRIX_MODULE_NAME}')  # Пишем лог
+    print_log(f'Был выполнен скрипт {KKM_SCRIPT_MODULE_NAME}')  # Пишем лог
     time.sleep(1)  # Необходимо для корректой отработки
 
 

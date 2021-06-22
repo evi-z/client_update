@@ -3,7 +3,9 @@ import sys
 import time
 import socket
 import json
+import configparser
 
+from kkm_values import *
 from scripts_fun import *
 from subprocess import run, PIPE
 
@@ -17,20 +19,7 @@ for i in range(2):  # 2 попытки
     except ModuleNotFoundError:  # Если нет
         print_log(f'Скрипт {get_basename(__file__)} не смог импортировать модуль pyshtrih, попытка установки')
 
-        run([sys.executable, os.path.join(os.getcwd(), SCRIPTS_DIR_NAME,INSTALLER_LIBRARY_MODULE_NAME), 'pyshtrih'])
-
-# Данные с сервера TODO
-HOST = '85.143.156.89'
-KKM_DEMON_PORT = 11718
-
-# Ключи словаря приветствия
-MODE_DICT_KEY = 'mode'
-DATA_DICT_KEY = 'data'
-
-EOF = '#'
-
-CONFIGURATION_MODE = 'configuration'
-KKM_STRIX_MODE = 'kkm_strix'
+        run([sys.executable, os.path.join(os.getcwd(), SCRIPTS_DIR_NAME, INSTALLER_LIBRARY_MODULE_NAME), 'pyshtrih'])
 
 
 # Создаёт словарь приветствия и кодирует в JSON
@@ -66,59 +55,78 @@ def get_argv_list(argv):
         sys.exit(0)
 
 
+def get_first_connection():
+    devices = pyshtrih.discovery()  # Ищем ККМ
+
+    return devices
+
+
 # Получаем список аргументов коммандной строки
 arg = get_argv_list(sys.argv)
 
-pharmacy = arg[0]
-kassa = arg[1]
+pharmacy = arg[0]  # Аптека
+kassa = arg[1]  # Касса
 
-# Ключи словаря
-PHARMACY_KEY = 'pharmacy'
-KASSA_KEY = 'device'
-RNM_KEY = 'rnm'  # РН ККТ
-MODEL_KEY = 'model'  # Название устройства
-FN_KEY = 'fn'  # Номер ФН
-FN_TIME_KEY = 'fn_time'  # Срок действия ФН
-ADDRESS_KEY = 'address'  # Адрес
-UNCORR_FD_COUNT_KEY = 'uncorr_fd_count'  # Колличество неподтвержённых ФД
-LAST_OFD_UNCORR_DOC_NUM_KEY = 'last_ofd_uncorr_doc_num'  # Номер документа для ОФД первого в очереди
-LAST_OFD_UNCORR_DOC_TIME_KEY = 'last_ofd_uncorr_doc_time'  # Дата и время документа для ОФД первого в очереди
-LAST_FD_NUM_KEY = 'last_fd_num'  # Номер последнего ФД
-INN_KEY = 'inn'  # ИНН
+device = None
+if len(arg) == 2:  # Если переданы только Аптека и Касса
+    devices = get_first_connection()  # Первичный поиск ККМ
 
-devices = pyshtrih.discovery()  # Ищем ККМ
+    if devices:  # Если ККМ найден
+        device = devices[0]  # Получаем первый (он всё-равно один)
+        save_kkm_connect_data(STRIX_KKM, device.port, device.baudrate)  # Сохраняем данные по ККМ
 
-if not devices:  # Если не найден
+elif len(arg) == 4:  # Если переданы COM-порт и Скорость
+    com_port = arg[2]  # COM порт
+    baudrate = arg[3]  # Скорость
+
+    devices = pyshtrih.discovery(port=com_port, baudrate=baudrate)  # Подключаемся к ККМ
+
+    if not devices:  # Если всё равно не найдено
+        devices = get_first_connection()  # Пытаемся найти
+
+        if devices:  # Если ККМ найден
+            device = devices[0]  # Получаем первый (он всё-равно один)
+            save_kkm_connect_data(STRIX_KKM, device.port, device.baudrate)  # Сохраняем данные по ККМ
+        else:  # Если не найден даже в первичной инициализации
+            os.remove(KKM_CONFIG_FILE_NAME)  # Удаляем конфигурационный файл
+
+    else:  # Если найден
+        device = devices[0]  # Получаем первый (он всё-равно один)
+
+else:  # Неверные аргументы коммандной строки
+    sys.exit(0)
+
+
+if not device:  # Если не найден
     print_log(f'Скрипт {get_basename(__file__)} не нашёл ККМ, работа прервана')
     sys.exit(0)
 
-device = devices[0]  # Получаем первый (он всё-равно один)
-device.connect()  # Коннектим к ККМ
+print_log(f'Скрипт {get_basename(__file__)} обнаружил ККМ и начал работу '
+          f'(COM: {device.port}, Скорость: {device.baudrate})')
 
-# Наименования таблиц
-TABLE_FISCAL_STORAGE_NAME = 'FISCAL STORAGE'
-FIELD_RNM_NAME = 'RNM'
-FIELD_ADDRESS_NAME = 'ADDRESS'
+device.connect()  # Коннектим к ККМ
 
 # Константы таблицы
 TABLE_FISCAL_STORAGE_NUMBER = 18  # Номер таблицы Fiscal Storage
 FIELD_RNM_NUMBER = 3  # Поле РН ККТ
+FIELD_INN_NUMBER = 2  # Поле ИНН
 FIELD_ADDRESS_NUMBER = 9  # Поле Адрес
 
 # Чтение таблиц (словарные предсавления)
 rnm = device.read_table(TABLE_FISCAL_STORAGE_NUMBER, 1, FIELD_RNM_NUMBER, str)  # РН ККТ
 address = device.read_table(TABLE_FISCAL_STORAGE_NUMBER, 1, FIELD_ADDRESS_NUMBER, str)  # Адрес
+inn = device.read_table(TABLE_FISCAL_STORAGE_NUMBER, 1, FIELD_INN_NUMBER, str)  # ИНН
 
 # Значения
-rnm = rnm['Значение']
-address = address['Значение']
+rnm = rnm['Значение'].strip()
+address = address['Значение'].strip()
+inn = inn['Значение'].strip()
 
 # Сбор данных
 fn_stat = device.fs_state()  # Статус ФН
 fn_time = device.fs_expiration_time()  # Срок действия ФН
 fn_ofd = device.fs_info_exchange()  # Статус обмена с ОФД
 fn_count_unrec = device.fs_unconfirmed_document_count()  # ФД без квитанции
-full_state = device.full_state()  # Длинный запрос
 model = device.model()  # Модель
 
 device.disconnect()  # Отключаемся от ККМ
@@ -136,8 +144,9 @@ data_dict = {
     LAST_OFD_UNCORR_DOC_NUM_KEY: fn_ofd['Номер документа для ОФД первого в очереди'],
     LAST_OFD_UNCORR_DOC_TIME_KEY: fn_ofd['Дата и время документа для ОФД первого в очереди'].isoformat(),
     LAST_FD_NUM_KEY: fn_stat['Номер последнего ФД'],
-    INN_KEY: full_state['ИНН']
+    INN_KEY: inn
 }
+
 
 try:
     send_data(data_dict)  # Отправляем данные на сервер
