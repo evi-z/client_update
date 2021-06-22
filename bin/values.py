@@ -35,7 +35,7 @@ KKM_STRIX_MODE = 'kkm_strix'
 UPDATER_MODULE_NAME = 'updater.py'
 CLIENT_MODULE_NAME = 'client.pyw'
 PC_CONFIG_MODULE_NAME = 'pc_config.py'
-KKM_STRIX_MODULE_NAME = 'strix.py'
+KKM_SCRIPT_MODULE_NAME = 'kkm.py'
 
 # Наименования файлов
 CONFIG_NAME = 'settings.ini'
