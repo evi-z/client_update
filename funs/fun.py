@@ -1,8 +1,10 @@
 import logging
 import time
 from datetime import datetime
+from datetime import time as dtime
 import winreg as reg
 from subprocess import run, Popen, PIPE, STDOUT, DEVNULL
+from threading import Thread
 
 from bin.values import *
 from funs.low_level_fun import *
@@ -313,29 +315,24 @@ def replace_slash_to_backslash(ls):
 def init_scripts(init_tuple):
     group, pharmacy_or_subgroup, device_or_name = init_tuple
 
-    reg_dict, first_init_flag = get_reg_dict()  # Получаем словрь ключей реестра и флаг первичной инициализации
+    reg_dict = get_reg_dict()  # Получаем словрь ключей реестра и флаг первичной инициализации
 
     if group == GROUP_PHARMACY_INT:  # Если группа - Аптеки
-        # Проверка инициализации pc_config
-        if first_init_flag:  # Если инициализация - первичная
-            init_ip_config((pharmacy_or_subgroup, device_or_name))  # Запускаем pc_config
-
-        else:  # Если не первичная
+        try:  # Получаем время последнего запуска
             last_run = float(reg_dict[REG_LAST_RUN_KEY])  # Получаем время последнего запуска
+        except KeyError:  # Если ключа нет
+            init_ip_config((pharmacy_or_subgroup, device_or_name))  # Выполняем
+            set_last_run()  # Устанавливаем время последнего запуска
+            init_scripts(init_tuple)  # Перевызываем функцию
 
-            if need_init_pc_config_and_kkm_data(last_run):  # Если необходимо выполнить pc_config
-                init_ip_config((pharmacy_or_subgroup, device_or_name))  # Выполняем
+        if need_init_pc_config(last_run):  # Если необходимо выполнить pc_config
+            init_ip_config((pharmacy_or_subgroup, device_or_name))  # Выполняем
 
-        # Проверка инициализации kkm_data
-        if device_or_name in KASSA_DICT.values():
-            if first_init_flag:  # Если инициализация - первичная
-                init_kkm_data((pharmacy_or_subgroup, device_or_name))
-
-            else:
-                last_run = float(reg_dict[REG_LAST_RUN_KEY])  # Получаем время последнего запуска
-
-                if need_init_pc_config_and_kkm_data(last_run):  # Если необходимо выполнить kkm_data
-                    init_kkm_data((pharmacy_or_subgroup, device_or_name))
+        # Инициализация сбора данных о ККМ
+        kkm_thread = Thread(target=init_kkm_thread,
+                            args=(init_tuple, ))  # Создаёт поток контроля данных ККМ
+        kkm_thread.setName('KKMThread')  # Задаём имя потоку
+        kkm_thread.start()  # Запускает поток
 
     set_last_run()  # Устанавливаем время последнего запуска
 
@@ -347,6 +344,7 @@ def init_kkm_data(init_tuple):
     Popen([sys.executable, os.path.join(ROOT_PATH, SCRIPTS_DIR_NAME, KKM_SCRIPT_MODULE_NAME), pharmacy, kassa])
 
     print_log(f'Был выполнен скрипт {KKM_SCRIPT_MODULE_NAME}')  # Пишем лог
+    set_kkm_data_last_run()  # Пишем в реестр
     time.sleep(1)  # Необходимо для корректой отработки
 
 
@@ -362,7 +360,7 @@ def init_ip_config(init_tuple):
 
 
 # Возращает, необходимо ли инициализировать pc_config, искходя из времени последнего запуска
-def need_init_pc_config_and_kkm_data(last_run):
+def need_init_pc_config(last_run):
     now = time.time()  # Текущее время (с начала эпохи)
     uptime = psutil.boot_time()  # Время, которе запущена ОС
 
@@ -371,3 +369,40 @@ def need_init_pc_config_and_kkm_data(last_run):
         return True
     else:
         return False
+
+
+# Проверяет, необходимо ли выполнить сбор данных о ККМ
+def need_init_kkm_data(last_run):
+    now = time.time()  # Текущее время (с начала эпохи)
+
+    # Если время прошедшее с отправки меньше, чем зарегестрированное
+    if now - last_run > MINUTES_BEFORE_INIT_KKM_DATA * 60:
+        return True
+    else:
+        return False
+
+
+# Поток контроля отправки данных о ККМ
+def init_kkm_thread(init_tuple):
+    group, pharmacy_or_subgroup, device_or_name = init_tuple
+
+    # Проверка инициализации kkm_data
+    if device_or_name in KASSA_DICT.values():  # Если устройство есть в списке необходимых
+        while True:
+            reg_dict = get_reg_dict()  # Получаем словрь ключей реестра и флаг первичной инициализации
+
+            try:
+                last_run = float(reg_dict[REG_LAST_RUN_KKM_DATA_KEY])  # Получаем время последнего запуска
+            except KeyError:  # Если запись в реестре отсутсвует
+                init_kkm_data((pharmacy_or_subgroup, device_or_name))  # Инициализируем сбор данных
+                continue
+
+            need = need_init_kkm_data(last_run)
+            if need:  # Если необходимо выполнить kkm_data
+                init_kkm_data((pharmacy_or_subgroup, device_or_name))  # Инициализируем сбор данных
+            print_log(f'Проверка необходимости запуска сбора данных о ККМ по тикету: {need}')
+
+            time.sleep(600)  # Засыпает на 10 минут
+
+    else:  # Инициализация потока не требуется
+        return

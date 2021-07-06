@@ -49,13 +49,11 @@ def first_init_reg_keys():
 
 # Возвращает словарь реестра программы
 def get_reg_dict():
-    first_init_flag = False  # Флаг первичной инициализации
     try:  # Пытаемя открыть раздел еестра
         k = reg.OpenKey(reg.HKEY_CURRENT_USER, REG_ROOT_PATH, 0, reg.KEY_ALL_ACCESS)
 
     except FileNotFoundError:  # Если раздела не существует
         k = first_init_reg_keys()  # Проводим первичную инициализацию
-        first_init_flag = True  # Устанавливаем флаг первичной инициализации в True
 
     count_keys = reg.QueryInfoKey(k)[1]  # Колличество ключей раздела реестра
 
@@ -64,7 +62,7 @@ def get_reg_dict():
         key, value, types = reg.EnumValue(k, index)
         reg_dict[key] = value  # Пишем ключ - значение
 
-    return reg_dict, first_init_flag
+    return reg_dict
 
 
 # Устанавливает значение в реестр (по пути REG_ROOT)
@@ -78,6 +76,12 @@ def set_reg_key(key, value):
 def set_last_run():
     now = str(time.time())  # Получаем текущее время (с начала эпохи)
     set_reg_key(REG_LAST_RUN_KEY, now)  # Устанавливаем в реестр
+
+
+# Устанавливает время последнего сбора информации о ККМ в реестр
+def set_kkm_data_last_run():
+    now = str(time.time())  # Получаем текущее время (с начала эпохи)
+    set_reg_key(REG_LAST_RUN_KKM_DATA_KEY, now)  # Устанавливаем в реестр
 
 
 # Запускает "первичныe скрипты"

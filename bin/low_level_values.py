@@ -15,6 +15,7 @@ REG_ROOT_PATH = r'Software\NevisVNClient'
 # Ключи реестра
 REG_VERSION_KEY = 'Version'
 REG_LAST_RUN_KEY = 'LastRun'
+REG_LAST_RUN_KKM_DATA_KEY = 'LastRunKKMData'
 
 # Значения реестра
 REG_TRUE = '1'

@@ -130,3 +130,6 @@ GROUP_PHARMACY_INT = 0
 GROUP_OFFICE_INT = 1
 
 EOF = '#'
+
+# Прочие параметры
+MINUTES_BEFORE_INIT_KKM_DATA = 120   # Кол-во минут между запусками сбора данных о ККМ
