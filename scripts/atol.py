@@ -147,6 +147,7 @@ fptr.fnQueryData()
 
 rnm = fptr.getParamString(1037)  # РН ККТ
 inn = fptr.getParamString(1018)  # ИНН
+ur_lic = fptr.getParamString(1048)  # Юр. лицо
 address = fptr.getParamString(1009)  # Адрес
 
 # Статус информационного обмена
@@ -189,6 +190,7 @@ data_dict = {
     LAST_OFD_UNCORR_DOC_NUM_KEY: last_ofd_uncorr_doc_num,
     LAST_OFD_UNCORR_DOC_TIME_KEY: last_ofd_uncorr_doc_time.isoformat(),
     LAST_FD_NUM_KEY: last_fd_num,
+    UR_LIC: ur_lic,
     INN_KEY: inn
 }
 

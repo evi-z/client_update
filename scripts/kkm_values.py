@@ -41,4 +41,5 @@ UNCORR_FD_COUNT_KEY = 'uncorr_fd_count'  # Колличество неподтв
 LAST_OFD_UNCORR_DOC_NUM_KEY = 'last_ofd_uncorr_doc_num'  # Номер документа для ОФД первого в очереди
 LAST_OFD_UNCORR_DOC_TIME_KEY = 'last_ofd_uncorr_doc_time'  # Дата и время документа для ОФД первого в очереди
 LAST_FD_NUM_KEY = 'last_fd_num'  # Номер последнего ФД
+UR_LIC = 'ur_lic'  # Юр. лицо
 INN_KEY = 'inn'  # ИНН

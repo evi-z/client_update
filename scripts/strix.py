@@ -110,16 +110,19 @@ device.connect()  # Коннектим к ККМ
 TABLE_FISCAL_STORAGE_NUMBER = 18  # Номер таблицы Fiscal Storage
 FIELD_RNM_NUMBER = 3  # Поле РН ККТ
 FIELD_INN_NUMBER = 2  # Поле ИНН
+FIELD_USER_NUMBER = 7  # Поле Юр. Лицо
 FIELD_ADDRESS_NUMBER = 9  # Поле Адрес
 
 # Чтение таблиц (словарные предсавления)
 rnm = device.read_table(TABLE_FISCAL_STORAGE_NUMBER, 1, FIELD_RNM_NUMBER, str)  # РН ККТ
 address = device.read_table(TABLE_FISCAL_STORAGE_NUMBER, 1, FIELD_ADDRESS_NUMBER, str)  # Адрес
+ur_lic = device.read_table(TABLE_FISCAL_STORAGE_NUMBER, 1, FIELD_USER_NUMBER, str)  # Юр. лицо
 inn = device.read_table(TABLE_FISCAL_STORAGE_NUMBER, 1, FIELD_INN_NUMBER, str)  # ИНН
 
 # Значения
 rnm = rnm['Значение'].strip()
 address = address['Значение'].strip()
+ur_lic = ur_lic['Значение'].strip()
 inn = inn['Значение'].strip()
 
 # Сбор данных
@@ -144,6 +147,7 @@ data_dict = {
     LAST_OFD_UNCORR_DOC_NUM_KEY: fn_ofd['Номер документа для ОФД первого в очереди'],
     LAST_OFD_UNCORR_DOC_TIME_KEY: fn_ofd['Дата и время документа для ОФД первого в очереди'].isoformat(),
     LAST_FD_NUM_KEY: fn_stat['Номер последнего ФД'],
+    UR_LIC: ur_lic,
     INN_KEY: inn
 }
 
