@@ -12,6 +12,7 @@ try:
     from funs.low_level_fun import *
     from bin.values import *
     from funs.fun import *
+    from errors import *
 except ModuleNotFoundError as e:
     print_error(f'Критическая ошибка импорта модуля: {e}')
     sys.exit(0)
@@ -126,6 +127,7 @@ try:
 except Exception as e:
     print_error(f'Ошибка в инициализации побочных скриптов: {e}')
 
+count_restart_plink = 0  # Счётчик колличества перезапусков plink в этой сессии
 try:  # Отлов закрытия сокета
     while True:
         try:  # Отлов ошибок
@@ -169,25 +171,38 @@ try:  # Отлов закрытия сокета
             # Создаём процесс plink.exe
             plink_process = start_plink(command)
 
-            while True:  # Следим
-
+            while True:  # Следим за plink-ом
                 plink_pool = plink_process.poll()
                 if plink_pool is not None:  # Если процесс завершён
-                    print_restart_log(plink_pool, PLINK_NAME, plink_process.pid)
+                    # Если колличество перезапусков больше допустимого
+                    if count_restart_plink > MAX_COUNT_RESTART_PLINK:
+                        exit_because_plink()  # Завершаем работу
+
+                    # Пишем лог о перезапуске
+                    print_restart_log(plink_pool, PLINK_NAME, plink_process.pid, count_restart_plink)
+
+                    count_restart_plink += 1  # Прибавляем счётчик перезапусков plink
                     break
 
-                time.sleep(RECONNECT_CHECK_TIME)  # Проверяем, запущен ли plink и tvns
+                time.sleep(RECONNECT_CHECK_TIME)  # Проверяем, запущен ли plink
 
         except socket.timeout:  # Ловим timeout
             print_error(f'Подключение к серверу {HOST} по порту {port_conn} превысило время ожидания в {timeout} секунд')
+            time.sleep(3)
 
         except ConnectionRefusedError:  # Подключение сброшенно со стороны сервера
             print_error(f'Подлючение к серверу {HOST} по порту {port_conn} было сброшенно со стороны сервера')
 
             sleep_time = random.randint(5, 20)  # Ставим время от 5 до 20 для повторного подключения
             time.sleep(sleep_time)
+
         except socket.gaierror:
             print_incorrect_settings(f'Некореектный адрес ({HOST_PHARM})')
+            time.sleep(3)
+
+        except ClientException:  # Программная ошибка
+            print_log('Программа завершена')
+            sys.exit(0)
 
         except Exception as e:
             print_error(f'Неустановленная ошибка: {e}')

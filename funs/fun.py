@@ -8,6 +8,7 @@ from threading import Thread
 
 from bin.values import *
 from funs.low_level_fun import *
+from errors import *
 
 import json
 import configparser
@@ -17,14 +18,6 @@ import psutil
 import random
 import sys
 import os
-
-
-# Завершает программу и пишет лог, если переданн текст
-def exit(text=None):
-    if text:
-        print_log(text)
-
-    sys.exit(0)
 
 
 # Получает JSON данные от сокета и возвращает декодированным
@@ -211,7 +204,7 @@ def print_incorrect_settings(text, stand_print=True):
         text = f'{text}\n'
 
     print_log(text)
-    exit()
+    sys.exit(0)
 
 
 # Выбирает порт из списка и возращает
@@ -232,13 +225,14 @@ def print_log(text):
 
 
 # Пишет лог о завершении child-процессов
-def print_restart_log(retcode, process_name, pid):
+def print_restart_log(retcode, process_name, pid, restart_count):
     if retcode:  # Если retcode не 0
         print_log(f'Процесс {process_name} с идентификатором {pid} завершён некорекктно (код: {retcode}), '
-                  f'произведён перезапуск')
+                  f'произведён перезапуск. Перезапусков в сессии: {restart_count}')
 
     else:  # Если 0
-        print_log(f'Процесс {process_name} с идентификатором {pid} завершён, произведён перезапуск')
+        print_log(f'Процесс {process_name} с идентификатором {pid} завершён, произведён перезапуск. '
+                  f'Перезапусков в сессии: {restart_count}')
 
 
 # Пишет ошибку в лог
@@ -406,3 +400,18 @@ def init_kkm_thread(init_tuple):
 
     else:  # Инициализация потока не требуется
         return
+
+
+# Завершат программу, предварительно завершив сопровождающий софт
+def client_correct_exit(ex):
+    start_taskkill()  # Завершаем сопровождающий софт
+    raise ex  # Вызываем исключение
+
+
+# Завепшает работу клиента по причине многократного перезапуска plink-a
+def exit_because_plink():
+    print_log(f'Клиент завершил работу по причине многокраного перезапуска {PLINK_NAME} (более '
+              f'{MAX_COUNT_RESTART_PLINK} раз).\n'
+              f'Возможно, у вас не прописаны исключения антивируса, либо {PLINK_NAME} добавлен в карантин.\n'
+              f'Проверьте корректность настроек антивируса и повторите запуск.')
+    client_correct_exit(RestartPlinkCountException)  # Передаём исключение
