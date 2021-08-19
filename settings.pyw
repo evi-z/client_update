@@ -29,7 +29,6 @@ class Settings(QtWidgets.QMainWindow):
     def __init__(self):
         super(Settings, self).__init__(parent=None)
         self.initWidgetsPharmacy()  # Ну так вот
-        # self.ui = settings_win_office.Ui_Client_settings()  # ДЕБАГ
 
         self.initTitle()
         self.initDict()
@@ -100,7 +99,7 @@ class Settings(QtWidgets.QMainWindow):
 
         # Настройки ET
         self.ui.et_pharmacy.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)  # Устанавливет курсор в центр
-        self.ui.et_pharmacy.setValidator(QtGui.QIntValidator(0, 65535))  # Допустимый диапазон целых чисел
+        self.ui.et_pharmacy.setValidator(QtGui.QDoubleValidator(1.0, 65555.9, 1))  # Допустимый диапазон целых чисел
 
     # Инициализирует вид программы для группы Офис
     def initWidgetsOffice(self):
@@ -154,7 +153,7 @@ class Settings(QtWidgets.QMainWindow):
 
         if group == GROUP_PHARMACY_TEXT:
             group = str(GROUP_PHARMACY_INT)
-            pharmacy = self.ui.et_pharmacy.text()
+            pharmacy = self.ui.et_pharmacy.text().replace(',', '.')  # Боремся с запятой
             device = self.ui.cb_device.currentText()
             device = DEVICE_DICT[device]
 

@@ -89,7 +89,6 @@ def init_tvns():
 
 
 # Инициализирует всевозможные обращения к коммандной строке
-# TODO Проверка, включен ли бранд
 def run_init_cmd():
     # Отключение брандмауэра (админ)
     firewall_res = run('netsh advfirewall set allprofiles state off',
@@ -117,22 +116,9 @@ def start_client():
     start_taskkill()  # Завершает процессы plink и tvnserver
 
 
-# Завершает процессы, если запущенны TODO ## DEPRECATED ##
+# Завершает процессы, если запущенны
 def start_taskkill():
-    # run(f'taskkill /f /im {PLINK_NAME}', shell=True, stdin=PIPE, stdout=PIPE, stderr=PIPE)
     run(f'taskkill /f /im {TVNSERVER_NAME}', shell=True, stdin=PIPE, stdout=PIPE, stderr=PIPE)
-
-
-# # Проверяет, запущен ли tvnserver classic (режим совместимости)
-# def tvnserver_classic_running():
-#     try:  # Отлов ошибки psutil
-#         for proc in psutil.process_iter():
-#             if TVNSERVER_CLASSIC_NAME in proc.name():
-#                 return True
-#
-#         return False
-#     except Exception as e:
-#         logger.error(f'Ошибка в идентефикации процесса {TVNSERVER_CLASSIC_NAME}')
 
 
 # Запускает tvnserver и возвращает объект
@@ -144,22 +130,6 @@ def start_tvnserver():
         logger.info(f'Запущена служба {TVNSERVER_NAME}')
 
     return tvnserver_process
-
-
-# # Создаёт plink из шаблона и возвращает объект TODO ## DEPRECATED ##
-# def start_plink(command):
-#     plink_process = Popen(command, shell=True, stderr=STDOUT, stdout=DEVNULL)
-#
-#     # Пишем log
-#     if not plink_process.returncode:  # Если процесс запущен корректно (0)
-#         logger.info(f'Запущенн процесс {PLINK_NAME} с идентификатором {plink_process.pid}')
-#
-#     return plink_process
-
-
-# # Импортирует ключи реестра  TODO ## DEPRECATED ##
-# def import_key():
-#     run(f'reg import {os.path.join(ROOT_PATH, KEY_REG_PATH)}', shell=True, stdin=PIPE, stdout=PIPE, stderr=PIPE)
 
 
 # Инициализирует проверку актуальности параметров
@@ -181,13 +151,10 @@ def init_correct_config_parm(group, pharmacy_or_subgroup, device_or_name):
 def actual_parm_for_pharmacy(pharmacy, device):
     device_list = list(DEVICE_DICT.values())  # Допустимые значения устройств
 
-    # Защита MySQL
-    if not pharmacy.isdigit():
-        print_incorrect_settings(f'Номер аптеки должен быть целым числом ({PHARMACY_OR_SUBGROUP_PHARM})')
-
-    # Защита UNSIGNED SMALLINT на сервере
-    if int(pharmacy) >= 65535:
-        print_incorrect_settings(f'Некорректный номер аптеки ({PHARMACY_OR_SUBGROUP_PHARM})')
+    try:  # Пытаемся преобразовать к числу
+        float(pharmacy)
+    except ValueError:
+        print_incorrect_settings(f'Номер аптеки должен быть числом ({PHARMACY_OR_SUBGROUP_PHARM})')
 
     # Проверка на соответсвие списка устройств
     if device not in device_list:
