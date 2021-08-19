@@ -21,6 +21,7 @@ import asyncio
 logger = get_logger(__name__)
 
 
+flag_reinstall = False  # Флаг попытки установки
 for _ in range(2):  # 2 попытки
     try:  # Отлов отстутвия загружаемых модулей
         import psutil
@@ -28,12 +29,17 @@ for _ in range(2):  # 2 попытки
 
         break
     except ModuleNotFoundError as e:
-        logger.info(f'Ошибка в импорте загружаемых модулей: {e}')
+        if flag_reinstall:  # Если уже была попытка установки
+            logger.error('Установка дополнительных модулей не удалась, завершение работы')
+            sys.exit(0)  # Завершаем работу
+
+        logger.warning(f'Ошибка в импорте загружаемых модулей: {e}')
         need_modules_list = ('psutil', 'asyncssh')  # Список импорта
         logger.info(f'Попытка установки дополнительных модулей: {need_modules_list}')
         library_install(need_modules_list)  # Установка недостающих модулей
         time.sleep(3)  # timeout
-        pass
+
+        flag_reinstall = True  # Устанавливем флаг
 
 
 # Получает JSON данные от сокета и возвращает декодированным
