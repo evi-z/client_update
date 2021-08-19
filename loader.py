@@ -47,10 +47,3 @@ if current_commit != repo.head.commit or first_upd_flag:  # Если комми�
 
     Popen([sys.executable, os.path.join(ROOT_PATH, UPDATER_MODULE_NAME), UPDATER_RUN_ARG])  # Запускаем update-r
     sys.exit(0)  # Завершаем выполнение
-
-
-
-
-
-
-

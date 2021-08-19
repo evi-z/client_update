@@ -118,7 +118,8 @@ def get_argv_list(argv):
     else:  # Если нет, возвращаем пустой список
         sys.exit(0)
 
-arg = get_argv_list(sys.argv)
+
+arg = get_argv_list(sys.argv)  # Получаем список аргументов командной строки
 
 pharmacy = arg[0]
 device = arg[1]
@@ -166,7 +167,7 @@ for disk in psutil.disk_partitions():
 memory = round(bytes_to_gb(memory))
 
 # Тип логических дисков и их размеры
-command = 'PowerShell "Get-PhysicalDisk | fl -Property MediaType, Size'
+command = 'PowerShell "Get-PhysicalDisk | fl -Property MediaType, Size, FriendlyName"'
 res = run(command, shell=True, stdout=PIPE, stdin=PIPE, stderr=PIPE)
 
 disk_data = res.stdout.decode()

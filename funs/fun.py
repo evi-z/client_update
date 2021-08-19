@@ -20,10 +20,6 @@ import asyncio
 
 logger = get_logger(__name__)
 
-# TODO Пройдись тут и поправь всё под новый лад
-# Нужно придумать какую-нибудь локальную RunOnce систему, можно из-под папки
-# Там нужно будет удалить log
-
 
 for _ in range(2):  # 2 попытки
     try:  # Отлов отстутвия загружаемых модулей
@@ -327,9 +323,28 @@ def init_scripts(init_tuple):
         kkm_thread.setName('KKMThread')  # Задаём имя потоку
         kkm_thread.start()  # Запускает поток
 
+        # Инициализация сбора данных о дисках и бекапах
+        disk_usage_thread = Thread(target=init_disk_usage_thread,
+                                   args=(init_tuple,))  # Создаёт поток контроля данных о дисках и бекапах
+        disk_usage_thread.setName('DiskUsageThread')  # Задаём имя потопку
+        disk_usage_thread.start()  # Запускаем поток
+
     set_last_run()  # Устанавливаем время последнего запуска
 
 
+# Инициализирует работу disk_usage скрипта
+def init_disk_usage_data(init_tuple):
+    pharmacy, device = init_tuple
+
+    # Отправляем номер аптеки и устройство аргументами коммандной строки
+    Popen([sys.executable, os.path.join(ROOT_PATH, SCRIPTS_DIR_NAME, DISK_USAGE_MODULE_NAME), pharmacy, device])
+
+    logger.info(f'Был выполнен скрипт {DISK_USAGE_MODULE_NAME}')  # Пишем лог
+    set_disk_usage_last_run()  # Пишем в реестр последний запуск
+    time.sleep(1)  # Необходимо для корректой отработки
+
+
+# Инициализирует работу kkm скрипта
 def init_kkm_data(init_tuple):
     pharmacy, kassa = init_tuple
 
@@ -375,6 +390,17 @@ def need_init_kkm_data(last_run):
         return False
 
 
+# Проверяет, необходимо ли выполнить сбор данных о дисках и бекапах
+def need_init_disk_usage(last_run):
+    now = time.time()  # Текущее время (с начала эпохи)
+
+    # Если время прошедшее с отправки меньше, чем зарегестрированное
+    if now - last_run > MINUTES_BEFORE_INIT_DISK_USAGE * 60:
+        return True
+    else:
+        return False
+
+
 # Поток контроля отправки данных о ККМ
 def init_kkm_thread(init_tuple):
     group, pharmacy_or_subgroup, device_or_name = init_tuple
@@ -399,6 +425,26 @@ def init_kkm_thread(init_tuple):
 
     else:  # Инициализация потока не требуется
         return
+
+
+# Поток контроля отправки данных о дисках и бекапах
+def init_disk_usage_thread(init_tuple):
+    group, pharmacy_or_subgroup, device_or_name = init_tuple
+
+    while True:
+        reg_dict = get_reg_dict()  # Получаем словрь ключей реестра и флаг первичной инициализации
+
+        try:
+            last_run = float(reg_dict[REG_LAST_RUN_DISK_USAGE])  # Получаем время последнего запуска
+        except KeyError:  # Если запись в реестре отсутсвует
+            init_disk_usage_data((pharmacy_or_subgroup, device_or_name))  # Инициализируем сбор данных
+            continue
+
+        if need_init_disk_usage(last_run):  # Если необходимо выполнить disk_usage
+            init_disk_usage_data((pharmacy_or_subgroup, device_or_name))  # Инициализируем сбор данных
+            logger.info(f'Сбор данных о дисках и бекапах по тикету')
+
+        time.sleep(600)  # Засыпает на 10 минут
 
 
 # Завершат программу, предварительно завершив сопровождающий софт

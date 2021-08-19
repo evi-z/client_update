@@ -87,6 +87,12 @@ def set_kkm_data_last_run():
     set_reg_key(REG_LAST_RUN_KKM_DATA_KEY, now)  # Устанавливаем в реестр
 
 
+# Устанавливает время последнего сбора информации о дисках и бекапах в реестр
+def set_disk_usage_last_run():
+    now = str(time.time())  # Получаем текущее время (с начала эпохи)
+    set_reg_key(REG_LAST_RUN_DISK_USAGE, now)  # Устанавливаем в реестр
+
+
 # Запускает "первичныe скрипты"
 def run_first_scripts():
     try:

@@ -10,6 +10,8 @@ from funs.fun import *
 
 logger = get_logger(__name__)
 
+# TODO Срочно обновить updater, print error-a больше нет
+
 
 # Создаёт бекапы обновляемых файлов
 def create_backup(backup_list):
@@ -80,7 +82,7 @@ def update_program(update_list, update_list_otn):
                 what_upd_list.append(new_file_list[index])  # Добавляем в лист обновления
                 logger.info(f'Обновлён файл {new_file_list[index]}')  # Пишем лог
 
-            else:  # Если по другой sпричине
+            else:  # Если по другой причине
                 print_error(e)
 
     logger.info(f'Обновленны файлы: {what_upd_list}')  # Пишем лог об успешном обновлении
@@ -99,6 +101,7 @@ def remove_upd_file():
 
 # Открывает клиента и завершает работу
 def reload_client():
+    # TODO Сделать, чтоб передавался sys.argv[0] из loader-a
     Popen([sys.executable, os.path.join(ROOT_PATH, CLIENT_MODULE_NAME), DONT_NEED_INIT_LOADER_ARG])
     logger.info(f'Обновление завершенно, попытка запуска {CLIENT_MODULE_NAME}')
     sys.exit(0)

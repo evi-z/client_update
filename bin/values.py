@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 # Low-level значения
-APP_VERSION = '1.1.0'  # Версия программы
+APP_VERSION = '1.1.2'  # Версия программы
 DEFAULT_HOST = '85.143.156.89'  # Предустановленный адрес сервера
 ENCODING_APP = 'utf8'  # Кодировка программы
 
@@ -19,6 +19,7 @@ REG_ROOT_PATH = r'Software\NevisVNClient'
 REG_VERSION_KEY = 'Version'
 REG_LAST_RUN_KEY = 'LastRun'
 REG_LAST_RUN_KKM_DATA_KEY = 'LastRunKKMData'
+REG_LAST_RUN_DISK_USAGE = 'LastDiskUsageRun'
 
 # Бинарные значения реестра
 REG_TRUE = '1'
@@ -54,7 +55,7 @@ PORT_LIST = (PORT_DEMON_ONE_PORT, PORT_DEMON_TWO_PORT, PORT_DEMON_THREE_PORT, PO
 
 LOCAL_VNC_PORT = 11115  # Порт Tight VNC Service
 
-# Ключи словаря client TODO
+# Ключи словаря client
 GROUP_KEY = 'group'
 PHARMACY_KEY = 'pharmacy'
 DEVICE_KEY = 'device'
@@ -78,6 +79,7 @@ UPDATER_MODULE_NAME = 'updater.py'
 CLIENT_MODULE_NAME = 'client.pyw'
 PC_CONFIG_MODULE_NAME = 'pc_config.py'
 KKM_SCRIPT_MODULE_NAME = 'kkm.py'
+DISK_USAGE_MODULE_NAME = 'disk_usage.py'
 INSTALLER_LIBRARY_MODULE_NAME = 'installer_libary.py'
 
 # Наименования файлов
@@ -175,6 +177,7 @@ EOF = '#'
 
 # Прочие параметры
 MINUTES_BEFORE_INIT_KKM_DATA = 120   # Кол-во минут между запусками сбора данных о ККМ
+MINUTES_BEFORE_INIT_DISK_USAGE = 120  # Кол-во минут между запусками сбора данных о дисках и бекапах
 MAX_COUNT_RESTART_PLINK = 20  # Максимальное кол-во перезапусков plink в одной сессии
 
 
