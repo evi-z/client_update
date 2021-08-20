@@ -1,7 +1,12 @@
+import os
+
 import psutil
 import json
 import sys
 import socket
+from os import path
+from pathlib import Path
+import glob
 
 from scripts_fun import *
 
@@ -63,11 +68,15 @@ logger.info(f'Скрипт {get_basename(__file__)} начал работу')
 # Ключи словаря конфигурации
 PHARMACY_DICT_KEY = 'pharmacy'
 DEVICE_DICT_KEY = 'device'
+BASE_SIZE_KEY = 'base_size'
 
 TOM_DICT_KEY = 'tom_data'
 TOM_TOTAL_SIZE_KEY = 'total'
 TOM_FREE_SIZE_KEY = 'free'
 TOM_PERCENT_KEY = 'percent'
+
+PATH_FROM_BASE = 'С:\\retail'  # Путь к БД
+C_DRIVE = 'C:\\'
 
 tom_dict = {}  # Данные о дисках
 for tom in psutil.disk_partitions():  # Проходим по диску
@@ -84,12 +93,28 @@ for tom in psutil.disk_partitions():  # Проходим по диску
         TOM_PERCENT_KEY: usage.percent   # Процент занятого места
     }
 
+base_size = None
+try:
+    if int(device) in (1, 99):  # Если первая касса, либо сервер
+        system_drive = list(Path(__file__).parents)[-1]  # Логический диск
+        path_to_retail = Path(os.path.join(system_drive, 'retail'))
+        if path_to_retail.exists():  # Если папка с базой существует
+            listdir = os.listdir(path_to_retail)  # Список файлов
+
+            for file in listdir:  # Проходим по файлам
+                if file.endswith('.1CD'):   # Если файл базы
+                    base_file = os.path.join(path_to_retail, file)  # Пишем путь
+                    base_size = bytes_to_gb(os.path.getsize(base_file))  # Пишем размер базы
+except Exception:  # TODO
+    pass
 
 disk_usage_dict = {
     PHARMACY_DICT_KEY: pharmacy,
     DEVICE_DICT_KEY: device,
-    TOM_DICT_KEY: tom_dict
+    TOM_DICT_KEY: tom_dict,
+    BASE_SIZE_KEY: base_size
 }
+
 
 try:
     send_configuration_data(disk_usage_dict)  # Отправляет данные на сервер
