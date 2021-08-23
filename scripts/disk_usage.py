@@ -101,10 +101,11 @@ try:
         if path_to_retail.exists():  # Если папка с базой существует
             listdir = os.listdir(path_to_retail)  # Список файлов
 
+            base_size = 0
             for file in listdir:  # Проходим по файлам
                 if file.endswith('.1CD'):   # Если файл базы
                     base_file = os.path.join(path_to_retail, file)  # Пишем путь
-                    base_size = bytes_to_gb(os.path.getsize(base_file))  # Пишем размер базы
+                    base_size += bytes_to_gb(os.path.getsize(base_file))  # Пишем размер базы
 except Exception:  # TODO
     pass
 
