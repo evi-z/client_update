@@ -82,21 +82,28 @@ try:  # Отлов закрытия сокета
             ssh_user = connect_dict[USER_KEY]  # Логин
             ssh_password = connect_dict[PASSWORD_KEY]  # Пароль
             ssh_host = connect_dict[SERVER_KEY]  # Хост
+            check_bd_write_demon_port = connect_dict[CHECK_BD_WRITE_KEY]  # Порт демона check_bd
 
             tvnserver_process = start_tvnserver()  # Создаём процесс tvnserver
 
             try:  # Пытаемся пробросить порт
-                asyncio.get_event_loop().run_until_complete(new_ssh_connection(
+                loop = asyncio.get_event_loop()
+                loop.run_until_complete(new_ssh_connection(
                     ssh_host=ssh_host,
                     ssh_port=ssh_port,
                     serv_port=serv_port,
                     local_port=LOCAL_VNC_PORT,
                     ssh_username=ssh_user,
-                    ssh_password=ssh_password
+                    ssh_password=ssh_password,
+                    check_bd_demon_port=check_bd_write_demon_port,
+                    init_dict=init_dict,  # Словарь описания (группа, аптека/подгруппа, устройство/имя)
                 ))
             except (OSError, asyncssh.Error) as exc:  # Ошибка проброса порта
                 logger.error(f'Проброс порта SSH не удался: {exc}', exc_info=True)
                 time.sleep(5)  # timeout
+            except ReconnectForRewriteDBException:  # Если от сервера пришёл ответ об отсутсвии в БД
+                logger.warning('От сервера пришёл ответ об отсутсвии записи в БД')
+                time.sleep(5)
 
             logger.warning('Цикл выполнения был прерван, производится перезапуск')
 

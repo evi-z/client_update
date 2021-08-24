@@ -3,6 +3,6 @@ class ClientException(Exception):
     pass
 
 
-class RestartPlinkCountException(ClientException):
-    """ Вызвыается, если было превышено кол-во допустимых перезапусков plink-а """
+class ReconnectForRewriteDBException(ClientException):
+    """Вызывается, если от сервера получен ответ об отсутсвии записи в БД"""
     pass

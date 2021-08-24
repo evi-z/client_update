@@ -426,18 +426,9 @@ def client_correct_exit(ex):
     raise ex  # Вызываем исключение
 
 
-# Завепшает работу клиента по причине многократного перезапуска plink-a
-def exit_because_plink():
-    logger.info(f'Клиент завершил работу по причине многокраного перезапуска {PLINK_NAME} (более '
-                f'{MAX_COUNT_RESTART_PLINK} раз).\n'
-                f'Возможно, у вас не прописаны исключения антивируса, либо {PLINK_NAME} добавлен в карантин.\n'
-                f'Проверьте корректность настроек антивируса и повторите запуск.')
-    client_correct_exit(RestartPlinkCountException)  # Передаём исключение
-
-
 # Новый способ подключения поредством SSH
 async def new_ssh_connection(*, ssh_host=None, ssh_port=None, serv_port=None, local_port=None,
-                             ssh_username=None, ssh_password=None):
+                             ssh_username=None, ssh_password=None, check_bd_demon_port=None, init_dict=None):
     async with asyncssh.connect(
             ssh_host,
             port=ssh_port,
@@ -448,7 +439,32 @@ async def new_ssh_connection(*, ssh_host=None, ssh_port=None, serv_port=None, lo
         conn.set_keepalive(5 * 60, 3)  # Устанавливаем keepalive в 5 минут c 3мя попытками
         listener = await conn.forward_remote_port('', serv_port, 'localhost', local_port)  # Пробрасываем порт
         logger.info(f'Проброс порта {listener.get_port()} на {ssh_host} к локальному порту {local_port}')
+        # Переодично проверяет, есть ли запись в БД
+        await check_writing_in_database(conn, ssh_host=ssh_host, check_bd_demon_port=check_bd_demon_port,
+                                        init_dict=init_dict)
         await listener.wait_closed()  # Ожидаем закрытия
+
+
+# Связывается с сервером и проверяет, есть ли запись в БД
+async def check_writing_in_database(conn, *, ssh_host=None, check_bd_demon_port=None, init_dict=None):
+    while True:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            sock.connect((ssh_host, check_bd_demon_port))  # Подключение к серверу
+
+            # Создаём словарь с режимом check_bd и словарём описания
+            send_data = get_hello_dict(CHECK_BD_MODE, init_dict)
+            sock.send(send_data.encode())  # Отправка словаря приветсвия на сервер
+
+            online_status = get_data_from_socket(sock)  # Статус записи в БД
+
+            if not online_status:  # Если не в сети
+                conn.disconnect(asyncssh.DISC_BY_APPLICATION, '')  # Закрываем соединение (на всякий)
+                raise ReconnectForRewriteDBException  # Вызываем исключение
+        except (ConnectionRefusedError, ConnectionResetError):  # Если DB демон не работает
+            logger.warning('Удалённая проверка наличия в БД не удалась')
+
+        await asyncio.sleep(MINUTES_BEFORE_CHECK_DB_WRITING * 60)
 
 
 # Возвращает адрес сервера (используется в settings)

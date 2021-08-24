@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 # Low-level значения
-APP_VERSION = '1.1.2'  # Версия программы
+APP_VERSION = '1.1.3'  # Версия программы
 DEFAULT_HOST = '85.143.156.89'  # Предустановленный адрес сервера
 ENCODING_APP = 'utf8'  # Кодировка программы
 
@@ -43,6 +43,7 @@ SSH_PORT_KEY = 'ssh_port'
 USER_KEY = 'user'
 PASSWORD_KEY = 'password'
 SERVER_KEY = 'server'
+CHECK_BD_WRITE_KEY = 'check_bd_write_demon'
 
 # Порты демонов port_demon
 PORT_DEMON_ONE_PORT = 14421
@@ -52,7 +53,6 @@ PORT_DEMON_FOUR_PORT = 14424
 
 # Кортеж портов
 PORT_LIST = (PORT_DEMON_ONE_PORT, PORT_DEMON_TWO_PORT, PORT_DEMON_THREE_PORT, PORT_DEMON_FOUR_PORT)
-
 LOCAL_VNC_PORT = 11115  # Порт Tight VNC Service
 
 # Ключи словаря client
@@ -73,6 +73,7 @@ PORT_MODE = 'port'
 SETTINGS_MODE = 'settings'
 CONFIGURATION_MODE = 'configuration'
 KKM_STRIX_MODE = 'kkm_strix'
+CHECK_BD_MODE = 'check_bd'
 
 # Модули
 UPDATER_MODULE_NAME = 'updater.py'
@@ -178,7 +179,7 @@ EOF = '#'
 # Прочие параметры
 MINUTES_BEFORE_INIT_KKM_DATA = 120   # Кол-во минут между запусками сбора данных о ККМ
 MINUTES_BEFORE_INIT_DISK_USAGE = 120  # Кол-во минут между запусками сбора данных о дисках и бекапах
-MAX_COUNT_RESTART_PLINK = 20  # Максимальное кол-во перезапусков plink в одной сессии
+MINUTES_BEFORE_CHECK_DB_WRITING = 60  # Количество минут между проверками о записи в БД
 
 
 
