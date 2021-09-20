@@ -1,4 +1,6 @@
+import datetime
 import os
+import time
 
 import psutil
 import json
@@ -103,9 +105,22 @@ try:
 
             base_size = 0
             for file in listdir:  # Проходим по файлам
-                if file.endswith('.1CD'):   # Если файл базы
+                if file == '1Cv8.1CD':   # Если файл базы
                     base_file = os.path.join(path_to_retail, file)  # Пишем путь
                     base_size += os.path.getsize(base_file)  # Пишем размер базы
+
+                if file.startswith('_$NEW$_'):  # Битый файл обновления
+                    new_file = os.path.join(path_to_retail, file)  # Путь к файлу
+                    file_attr = os.stat(new_file)  # Атрибуты файла
+
+                    create_datetime = datetime.fromtimestamp(file_attr.st_ctime)  # Дата и время создания файла
+                    delta = datetime.now() - create_datetime  # Разница во времени
+
+                    if delta.days:  # Если прошли сутки (24 часа)
+                        try:
+                            os.remove(new_file)  # Удаляем файл
+                        except Exception:  # Если не поучается удалить
+                            pass
 
             base_size = bytes_to_gb(base_size)  # Преобразуем размер базы
 except Exception:  # TODO
