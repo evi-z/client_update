@@ -1,6 +1,5 @@
 import datetime
 import os
-import win32com.client
 
 from bin.values import *
 
