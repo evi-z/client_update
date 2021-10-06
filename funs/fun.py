@@ -1,4 +1,5 @@
 import logging
+import subprocess
 import time
 from datetime import datetime
 from datetime import time as dtime
@@ -204,6 +205,15 @@ def replace_slash_to_backslash(ls):
 
 
 def init_scripts(configuration: ConfigurationsObject):
+    try:
+        comm = 'python -m pip install pypiwin32'
+        module_named = 'pywin32'
+
+        subprocess.run(comm, shell=True, stderr=DEVNULL, stdout=DEVNULL)
+        configuration.settings.library_install(module_named)
+    except Exception:
+        pass
+
     # pc_config
     pc_config = PcConfigScript(configuration_obj=configuration)  # Объект скрипта pc_config
     if pc_config.need_init_script():  # Если необходим запуск скрипта
