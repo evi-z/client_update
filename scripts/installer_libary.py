@@ -33,7 +33,7 @@ if ' ' in PATH_TO_PIP:
 time.sleep(0.2)
 
 # Установка библиотек pip
-list_full_lib = ['asyncssh', 'PyQt5', 'psutil', 'py-cpuinfo', 'GitPython', 'pyshtrih']
+list_full_lib = ['asyncssh', 'PyQt5', 'psutil', 'py-cpuinfo', 'GitPython', 'pyshtrih', 'schedule']
 
 if silent_flag:  # Если тихий режим
     for lib in argv_list:  # Устанавливаем переданные в cmd библиотеки

@@ -224,6 +224,13 @@ def init_scripts(configuration: ConfigurationsObject):
     if regular.need_init_script():
         regular.start_thread()  # Запускаем поток
 
+    # sheduler
+    app_sheduler = AppScheduler(configuration_obj=configuration)
+    if app_sheduler.need_init_script():
+        app_sheduler.start_thread()  # Запускаем поток
+
+
+
 
 # Завершат программу, предварительно завершив сопровождающий софт
 def client_correct_exit(ex):

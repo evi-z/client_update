@@ -13,6 +13,7 @@ import time
 from importlib import import_module
 from subprocess import Popen, PIPE, run
 from threading import Thread
+import pythoncom
 
 import asyncssh
 import git.exc
@@ -128,6 +129,15 @@ class SettingsObject:
             return argv_list
         else:  # Если нет, возвращаем пустой список
             return []
+
+    # Устанавливет библиотеку(ки)
+    @staticmethod
+    def library_install(lib):
+        if isinstance(lib, str):  # Если передана одна библиотека
+            run([sys.executable, os.path.join(os.getcwd(), SCRIPTS_DIR_NAME, INSTALLER_LIBRARY_MODULE_NAME), lib])
+        elif any((isinstance(lib, list), isinstance(lib, tuple))):  # Если несколько библиотек
+            lib = ' '.join(lib)  # Объединяем по пробелу
+            run([sys.executable, os.path.join(os.getcwd(), SCRIPTS_DIR_NAME, INSTALLER_LIBRARY_MODULE_NAME), lib])
 
 
 # Объект конфигурации
@@ -584,8 +594,8 @@ class RegularScript:
                 self._init_script()  # Запускаем сбор данных
                 continue
 
-            if self._check_need_init(last_run):  # Если необходимо выполнить kkm_data
-                self._init_script()  # Инициализируем сбор данных
+            if self._check_need_init(last_run):  # Если необходимо выполнить
+                self._init_script()  # Инициализируем работу
 
             time.sleep(60 * 10)  # Засыпает на 10 минут
 
@@ -612,6 +622,70 @@ class RegularScript:
         return True
 
 
+# Объект планировщика
+class AppScheduler:
+    def __init__(self, *, configuration_obj: ConfigurationsObject):
+        self.configuration = configuration_obj
+
+        flag_reinstall = False  # Флаг попытки установки
+        for _ in range(2):  # 2 попытки
+            try:  # Отлов отстутвия загружаемых модулей
+                import schedule  # Пытаемся импортировать модуль
+
+                break
+            except ModuleNotFoundError as e:
+                if flag_reinstall:  # Если уже была попытка установки
+                    self.configuration.settings.logger.error('Установка модуля [schedule] не удалась')
+                    return
+
+                self.configuration.settings.logger.warning(f'Ошибка в импорте загружаемых модулей: {e}')
+                need_module = 'schedule'  # Список импорта
+                self.configuration.settings.library_install(need_module)  # Установка недостающих модулей
+                time.sleep(3)  # timeout
+                flag_reinstall = True  # Устанавливем флаг
+
+        self.scheduler = schedule.Scheduler()  # Объект планировщика
+        self.module_name = 'schedulers'  # Имя модуля
+        self.thread_name = 'SchedulerThread'  # Имя потока
+
+        try:  # Пытаемся импортировать модуль
+            self.module = import_module(f'{SCRIPTS_DIR_NAME}.{self.module_name}')
+        except ImportError:  # Если ошибка импорта
+            self.module = None  # Ставим None
+
+    # Инициализирует работу планировщика
+    def _init_static_sheduler(self):
+        self.module.script(self.configuration, self)  # Инициализирет планировщик файлом scheduler
+
+    # Цикл потока
+    def _script_thread(self):
+        pythoncom.CoInitializeEx(0)  # Инициализация COM-объектов в побочном потоке
+        self._init_static_sheduler()  # Инициализируем работу планирощика
+
+        while True:
+            self.scheduler.run_pending()  # Запускает планировщик
+            time.sleep(1)
+
+    # Запускает планировщик
+    def start_thread(self):
+        if self.module is None:  # Если модуль не импортировался
+            self.configuration.settings.logger.error(f'Ошибка в импорте модуля {self.module_name}')
+            return
+
+        thread = Thread(target=self._script_thread)  # Создаёт поток
+        thread.setName(self.thread_name)  # Задаём имя потоку
+        thread.start()  # Запускает поток
+
+    # Возвращает булево, необходимо ли выполнить скрипт
+    def need_init_script(self):
+        if self.configuration.group != GROUP_PHARMACY_INT:  # Если устройсто не Аптека
+            return False
+
+        return True
+
+    # TODO append_shedu
+
+
 # Объект соединения (проброса порта)
 class SSHConnection:
     def __init__(self, *, configuration_obj: ConfigurationsObject):
@@ -620,7 +694,7 @@ class SSHConnection:
 
     # Возвращает новый объект сокета
     @staticmethod
-    def _get_tcp_socket() -> socket.socket:
+    def get_tcp_socket() -> socket.socket:
         return socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     @staticmethod
@@ -757,7 +831,7 @@ class SSHConnection:
     # Связывается с сервером и проверяет, есть ли запись в БД
     async def _check_writing_in_database(self, conn: asyncssh.connect):
         while True:
-            sock = self._get_tcp_socket()  # Получаем сокет
+            sock = self.get_tcp_socket()  # Получаем сокет
             try:
                 # Словарь инициализации для передачи на сервер
                 init_dict = {
@@ -818,7 +892,7 @@ class SSHConnection:
 
         hello_dict = self.get_hello_dict(PORT_MODE, init_dict)  # Получаем словарь приветствия с init_dict
 
-        sock = self._get_tcp_socket()  # Получаем TCP сокет
+        sock = self.get_tcp_socket()  # Получаем TCP сокет
         port_conn = random.choice(PORT_LIST)  # Получаем случайный порт из списка
         sock.connect((self.configuration.host, port_conn))  # Подключение к серверу
 
