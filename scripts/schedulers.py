@@ -127,11 +127,6 @@ def iis_restart(configuration: ConfigurationsObject):
     time.sleep(1)
 
 
-# TODO
-CURRENT_PHARMACY = [51, 69, 133, 136, 173, 202, 203, 204, 205, 206, 220, 226, 229, 343, 393, 482, 490, 497, 595, 603,
-                    118, 124, 6666]
-
-
 # Возвращает время задачи, либо None
 def script(configuration: ConfigurationsObject, scheduler: AppScheduler):
     configuration.settings.logger.info(f'Корректировка настроек планировщика')
@@ -140,7 +135,7 @@ def script(configuration: ConfigurationsObject, scheduler: AppScheduler):
         task_time = need_init_iisrestart(configuration)  # Вернёт время, если необходима задача
 
         # Если вернулось время и в списке аптек
-        if task_time and int(configuration.pharmacy_or_subgroup) in CURRENT_PHARMACY:  # TODO Тут float
+        if task_time:
             task_time = datetime.time.fromisoformat(task_time)  # Преобразуем к time
             # Вычитаем из времени 10 минут
             time_for_restart_iis = datetime.timedelta(hours=task_time.hour, minutes=task_time.minute,
