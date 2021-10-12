@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 # Low-level значения
-APP_VERSION = '1.1.6'  # Версия программы
+APP_VERSION = '1.1.7'  # Версия программы
 DEFAULT_HOST = '85.143.156.89'  # Предустановленный адрес сервера
 ENCODING_APP = 'utf8'  # Кодировка программы
 
@@ -14,6 +14,9 @@ DONT_NEED_INIT_LOADER_ARG = '-wl'  # Не загружать loader
 
 # Пути реестра
 REG_ROOT_PATH = r'Software\NevisVNClient'
+
+# Библиотеки программы
+APP_LIBRARY = ['asyncssh', 'PyQt5', 'psutil', 'py-cpuinfo', 'GitPython', 'pyshtrih', 'schedule', 'pypiwin32', 'pywin32']
 
 # Ключи реестра
 REG_VERSION_KEY = 'Version'
@@ -83,6 +86,7 @@ CONFIGURATION_MODE = 'configuration'
 KKM_STRIX_MODE = 'kkm_strix'
 CHECK_BD_MODE = 'check_bd'
 REMOTE_MODE = 'remote'
+CHECK_TEST_CLIENT_UPDATE_MODE = 'test_client_update'
 
 # Модули
 UPDATER_MODULE_NAME = 'updater.py'

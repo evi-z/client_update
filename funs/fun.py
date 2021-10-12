@@ -6,12 +6,6 @@ from datetime import time as dtime
 import winreg as reg
 from subprocess import run, Popen, PIPE, STDOUT, DEVNULL
 from threading import Thread
-
-from bin.values import *
-from funs.low_level_fun import *
-from errors import *
-from objects import *
-
 import json
 import configparser
 import socket
@@ -20,10 +14,13 @@ import sys
 import os
 import asyncio
 
-logger = get_logger(__name__)
+from bin.values import *
+from funs.low_level_fun import *
+from errors import *
+from objects import *
 
+logger = get_logger(__name__)  # TODO Переделать под SettingObj
 
-flag_reinstall = False  # Флаг попытки установки
 for _ in range(2):  # 2 попытки
     try:  # Отлов отстутвия загружаемых модулей
         import psutil
@@ -31,17 +28,13 @@ for _ in range(2):  # 2 попытки
 
         break
     except ModuleNotFoundError as e:
-        if flag_reinstall:  # Если уже была попытка установки
-            logger.error('Установка дополнительных модулей не удалась, завершение работы')
-            sys.exit(0)  # Завершаем работу
+        from library_control import *
+        lib_control = LibraryControl(
+            logger_name=__name__,
+            root_file_path=os.path.join(ROOT_PATH, CLIENT_MODULE_NAME)
+        )
 
-        logger.warning(f'Ошибка в импорте загружаемых модулей: {e}')
-        need_modules_list = ('psutil', 'asyncssh')  # Список импорта
-        logger.info(f'Попытка установки дополнительных модулей: {need_modules_list}')
-        library_install(need_modules_list)  # Установка недостающих модулей
-        time.sleep(3)  # timeout
-
-        flag_reinstall = True  # Устанавливем флаг
+        lib_control.check_app_lib_install()  # Проверяем, установлены ли библиотеки
 
 
 # Получает JSON данные от сокета и возвращает декодированным
@@ -238,8 +231,6 @@ def init_scripts(configuration: ConfigurationsObject):
     app_sheduler = AppScheduler(configuration_obj=configuration)
     if app_sheduler.need_init_script():
         app_sheduler.start_thread()  # Запускаем поток
-
-
 
 
 # Завершат программу, предварительно завершив сопровождающий софт

@@ -11,8 +11,6 @@ from datetime import datetime
 from bin.values import *
 import logging
 
-from objects import *
-
 
 # Проверяет, запущенн ли client от имени администратора
 def is_admin():
@@ -211,14 +209,5 @@ def get_logger(name):
     logger.addHandler(init_logger())  # Добавляем
 
     return logger
-
-
-def init_settings(logger_name: str, root_file_path: str):
-    settings = SettingsObject(  # Объект настроек программы
-        logger_name=logger_name,
-        root_file_path=root_file_path
-    )
-
-    return settings
 
 

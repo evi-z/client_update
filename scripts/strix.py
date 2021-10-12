@@ -12,7 +12,6 @@ from subprocess import run, PIPE
 logger = get_logger(__name__)  # Инициализируем logger
 
 INSTALLER_LIBRARY_MODULE_NAME = 'installer_libary.py'
-SCRIPTS_DIR_NAME = 'scripts'
 
 for i in range(2):  # 2 попытки
     try:  # Пытаемся импортировать модуль
@@ -20,9 +19,10 @@ for i in range(2):  # 2 попытки
 
         break
     except ModuleNotFoundError:  # Если нет
+        print('Нету нихуя')
         logger.warning(f'Скрипт {get_basename(__file__)} не смог импортировать модуль pyshtrih, попытка установки')
 
-        run([sys.executable, os.path.join(os.getcwd(), SCRIPTS_DIR_NAME, INSTALLER_LIBRARY_MODULE_NAME), 'pyshtrih'])
+        run([sys.executable, os.path.join(os.getcwd(), INSTALLER_LIBRARY_MODULE_NAME), 'pyshtrih'])
 
 
 # Создаёт словарь приветствия и кодирует в JSON

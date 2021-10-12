@@ -9,15 +9,30 @@ import winreg as reg
 import asyncio
 import traceback
 
-from funs.low_level_fun import *
-from bin.values import *
-from funs.fun import *
-from errors import *
+from library_control import LibraryControl
 
-settings = init_settings(
+lib_control = LibraryControl(
     logger_name=__name__,
-    root_file_path=__file__,
+    root_file_path=__file__
+)
+
+lib_control.check_app_lib_install()  # Контроль установки библиотек
+
+try:
+    from objects import *
+    from funs.low_level_fun import *
+    from bin.values import *
+    from funs.fun import *
+    from errors import *
+except ImportError:  # Перехватываем исключения импорта в модулях
+    lib_control.logger.critical('Критическая ошибка импорта необходимых модулей', exc_info=True)
+
+
+settings = SettingsObject(
+    lib_control_obj=lib_control,
+    root_file_path=__file__
 )  # Инициализируем настройки
+
 
 # Если запущен не от адиминстратора
 if not is_admin():

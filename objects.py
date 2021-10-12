@@ -14,20 +14,28 @@ from importlib import import_module
 from subprocess import Popen, PIPE, run
 from threading import Thread
 
-try:  # TODO
-    import win32com.client
-except ModuleNotFoundError:
-    pass
-
-import asyncssh
-import git.exc
-from git import Repo
-from glob import glob
-
-import psutil
-
 from bin.values import *
 from errors import *
+
+for _ in range(2):  # 2 попытки
+    try:  # TODO
+        import win32com.client
+        import psutil
+        import asyncssh
+        import git.exc
+        import schedule
+        from git import Repo
+        from glob import glob
+
+        break
+    except ImportError:
+        from library_control import *
+        lib_control = LibraryControl(
+            logger_name=__name__,
+            root_file_path=os.path.join(ROOT_PATH, CLIENT_MODULE_NAME)
+        )
+
+        lib_control.check_app_lib_install()  # Проверяем, установлены ли библиотеки
 
 
 # Объект работы с реестром
@@ -83,34 +91,11 @@ class RegData:
 
 # Объект настроек программы
 class SettingsObject:
-    def __init__(self, *, logger_name, root_file_path):
+    def __init__(self, *, lib_control_obj, root_file_path: str):
         self.reg_data = RegData()  # Объект работы с реестром
-        self.logger = self.get_logger(logger_name)  # Логгер
+        self.lib_control = lib_control_obj  # Объект контроля либ
+        self.logger = lib_control_obj.logger  # Переводим логгер в настройки
         self.root_file_path = root_file_path  # Атрибут __file__ клиента
-
-    # Возвращает объект логгера
-    def get_logger(self, name=__name__):
-        logger = logging.getLogger(name)  # Инициализируем объект логгера с именем программы
-        logger.setLevel(logging.INFO)  # Уровень логгирования
-        logger.addHandler(self.init_logger())  # Добавляем
-
-        return logger
-
-    # Инициализирует объект логгера
-    def init_logger(self):
-        try:
-            fh = logging.FileHandler(LOG_FILE_PATH, 'a', ENCODING_APP)  # Файл лога
-        except FileNotFoundError:  # Если нет директории runtime
-            os.mkdir(os.path.join(ROOT_PATH, RUNTIME_DIR_NAME))  # Создаём папку runtime
-            fh = logging.FileHandler(LOG_FILE_PATH, 'a', ENCODING_APP)  # Файл лога
-
-        str_format = '[%(asctime)s]: %(levelname)s - %(name)s - (%(filename)s).%(funcName)s(%(lineno)d) ' \
-                     '=> %(message)s'  # Формат вывода
-        date_format = '%X %d/%m/%y'  # Формат даты/времени
-        formatter = logging.Formatter(fmt=str_format, datefmt=date_format)
-        fh.setFormatter(formatter)  # Устанавливаем форматирование
-
-        return fh  # Возвращаем настроенный логгер
 
     # Пишет критическую ошибку инициализации настроек и завершает программу
     def print_incorrect_settings(self, text: str, *, stand_print=True):
@@ -134,15 +119,6 @@ class SettingsObject:
         else:  # Если нет, возвращаем пустой список
             return []
 
-    # Устанавливет библиотеку(ки)
-    @staticmethod
-    def library_install(lib):
-        if isinstance(lib, str):  # Если передана одна библиотека
-            run([sys.executable, os.path.join(os.getcwd(), SCRIPTS_DIR_NAME, INSTALLER_LIBRARY_MODULE_NAME), lib])
-        elif any((isinstance(lib, list), isinstance(lib, tuple))):  # Если несколько библиотек
-            lib = ' '.join(lib)  # Объединяем по пробелу
-            run([sys.executable, os.path.join(os.getcwd(), SCRIPTS_DIR_NAME, INSTALLER_LIBRARY_MODULE_NAME), lib])
-
 
 # Объект конфигурации
 class ConfigurationsObject:
@@ -156,15 +132,16 @@ class ConfigurationsObject:
 
     # Инициализирует конигурацию посредством файла конфигурации и возвращает объект конфигурации
     @classmethod
-    def init_from_config_file(cls, *, settings: SettingsObject, path_to_config=CONFIG_FILE_PATH):
-        if not os.path.exists(CONFIG_FILE_PATH):  # Если файла конфигурации не существует
-            cls._create_config_file()  # Создаёт файл конфигурации
+    def init_from_config_file(cls, *, settings: SettingsObject, path_to_config=CONFIG_FILE_PATH, only_check=False):
+        if not only_check:
+            if not os.path.exists(CONFIG_FILE_PATH):  # Если файла конфигурации не существует
+                cls._create_config_file()  # Создаёт файл конфигурации
 
-            settings.print_incorrect_settings(f'Файл конфигурации {CONFIG_NAME} отсутсвовал\n'
-                                              'Он был создан по пути:\n'
-                                              f'{CONFIG_FILE_PATH}\n\n'
-                                              'Перед последующим запуском проинициализируйте его вручную, либо посредством '
-                                              'утилиты "Настройка клиента"', stand_print=False)
+                settings.print_incorrect_settings(f'Файл конфигурации {CONFIG_NAME} отсутсвовал\n'
+                                                  'Он был создан по пути:\n'
+                                                  f'{CONFIG_FILE_PATH}\n\n'
+                                                  'Перед последующим запуском проинициализируйте его вручную, либо '
+                                                  'посредством утилиты "Настройка клиента"', stand_print=False)
 
         config = configparser.ConfigParser()
         config.read(CONFIG_FILE_PATH)  # Читаем файл конфигурации
@@ -263,6 +240,15 @@ class Loader:
         self.uptime = MINUTES_BEFORE_CHECK_LOADER  # Как часто необходимо проверять обновления
         self.reg_key = REG_LAST_RUN_LOADER  # Ключ в реестре
 
+        try:
+            # Создаём файл конфигурации только для чтения (НУЖЕН ДЛЯ TEST_UPDATE)
+            self.configuration = ConfigurationsObject.init_from_config_file(
+                settings=self.settings,
+                only_check=True
+            )
+        except Exception:  # В случае ошибки пишем None
+            self.configuration = None
+
     # Возвращает булево, необходимо ли инициализировать loader
     @staticmethod
     def need_init_loader() -> bool:
@@ -360,6 +346,33 @@ class Loader:
             self._start()  # Инициализируем сбор данных
 
         self.start_flag = False  # Продолжаем по условию
+
+    def _start_test_update(self):  # TODO Доделать
+        pass
+
+    def init_test_update(self):  # TODO Доделать
+        if self.configuration.group != GROUP_PHARMACY_INT:  # Если не аптека
+            return
+
+        if self.check_need_init_test_update():
+            pass
+
+    # Проверяет, необходимо ли установить тестовое обновление
+    def check_need_init_test_update(self):
+        init_dict = {
+            PHARMACY_KEY: self.configuration.pharmacy_or_subgroup,
+            DEVICE_KEY: self.configuration.device_or_name,
+            APP_VERSION_KEY: APP_VERSION
+        }
+
+        hello_dict = SSHConnection.get_hello_dict(CHECK_TEST_CLIENT_UPDATE_MODE, init_dict)  # Словарь инициализации
+        sock = SSHConnection.get_tcp_socket()  # Сокет
+        sock.connect((self.configuration.host, 12113))  # TODO
+        sock.send(hello_dict.encode())  # Отправляем данные
+
+        need = SSHConnection.get_data_from_socket(sock)  # Получаем данные
+
+        return need
 
     # Запуск потока обновления
     def start_threading(self):
@@ -630,32 +643,14 @@ class RegularScript:
 # Объект планировщика
 class AppScheduler:
     def __init__(self, *, configuration_obj: ConfigurationsObject):
-        self.configuration = configuration_obj
-
-        flag_reinstall = False  # Флаг попытки установки
-        for _ in range(2):  # 2 попытки
-            try:  # Отлов отстутвия загружаемых модулей
-                import schedule  # Пытаемся импортировать модуль
-
-                break
-            except ModuleNotFoundError as e:
-                if flag_reinstall:  # Если уже была попытка установки
-                    self.configuration.settings.logger.error('Установка модуля [schedule] не удалась')
-                    return
-
-                self.configuration.settings.logger.warning(f'Ошибка в импорте загружаемых модулей: {e}')
-                need_module = 'schedule'  # Список импорта
-                self.configuration.settings.library_install(need_module)  # Установка недостающих модулей
-                time.sleep(3)  # timeout
-                flag_reinstall = True  # Устанавливем флаг
-
+        self.configuration = configuration_obj  # Объект конфигурации
         self.scheduler = schedule.Scheduler()  # Объект планировщика
         self.module_name = 'schedulers'  # Имя модуля
         self.thread_name = 'SchedulerThread'  # Имя потока
 
         try:  # Пытаемся импортировать модуль
             self.module = import_module(f'{SCRIPTS_DIR_NAME}.{self.module_name}')
-        except ImportError as e:  # Если ошибка импорта
+        except ImportError:  # Если ошибка импорта
             self.configuration.settings.logger.error(f'Импорт модуля {self.module_name} не удался', exc_info=True)
             self.module = None  # Ставим None
 
@@ -665,12 +660,13 @@ class AppScheduler:
 
     # Цикл потока
     def _script_thread(self):
+        # БЕЗ ЭТОГО НЕ БУДЕТ РАБОТАТЬ Scheduler Task В ПОБОЧНОМ ПОТОКЕ !
         win32com.client.pythoncom.CoInitializeEx(0)  # Инициализация COM-объектов в побочном потоке
         self._init_static_sheduler()  # Инициализируем работу планирощика
 
         while True:
             self.scheduler.run_pending()  # Запускает планировщик
-            time.sleep(1)
+            time.sleep(1)  # Таймаут секунда
 
     # Запускает планировщик
     def start_thread(self):
