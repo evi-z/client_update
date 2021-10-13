@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 # Low-level значения
-APP_VERSION = '1.1.7'  # Версия программы
+APP_VERSION = '1.1.8'  # Версия программы
 DEFAULT_HOST = '85.143.156.89'  # Предустановленный адрес сервера
 ENCODING_APP = 'utf8'  # Кодировка программы
 
