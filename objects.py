@@ -18,7 +18,7 @@ from bin.values import *
 from errors import *
 
 for _ in range(2):  # 2 попытки
-    try:  # TODO
+    try:
         import win32com.client
         import psutil
         import asyncssh
@@ -30,6 +30,7 @@ for _ in range(2):  # 2 попытки
         break
     except ImportError:
         from library_control import *
+
         lib_control = LibraryControl(
             logger_name=__name__,
             root_file_path=os.path.join(ROOT_PATH, CLIENT_MODULE_NAME)
@@ -339,7 +340,7 @@ class Loader:
         except RegKeyNotFound:  # Если ключа нет
             self._start()  # Запускаем сбор данных
             self.start_flag = False  # Продолжаем по условию
-            return   # Проверка не требуется
+            return  # Проверка не требуется
 
         # Если необходимо выполнить kkm_data, либо цикл только запущен
         if self._check_need_init(last_run) or self.start_flag:
@@ -789,10 +790,19 @@ class SSHConnection:
                                                                  name='check_writing_in_database_task')
             check_tvnserver_run = asyncio.create_task(self._check_tvnserver_run(),
                                                       name='check_tvnserver_run')
+            check_forward_port_closed = asyncio.create_task(self._check_forward_port_closed(listener),
+                                                            name='check_forward_port_closed')
 
-            await check_tvnserver_run
-            await check_writing_in_database_task
-            await check_reconnect_task
+            await check_tvnserver_run  # Проверка работы TightVNC
+            await check_writing_in_database_task  # Проверка записи в БД (со стороны сервера)
+            await check_reconnect_task  # Перепроброс порта по времени
+            await check_forward_port_closed  # Проверяет, не закрылся ли проброшенный порт
+
+    # Проверяет, не закрылся ли проброшенный порт
+    async def _check_forward_port_closed(self, listener: asyncssh.SSHListener):
+        await listener.wait_closed()  # Ожидает закрытия проброшенного порта
+        self.configuration.settings.logger.warning('Соединение с сервером разовано, производится переподключение')
+        self._close_all_connection_tasks()  # Если wait_close завершился - завершаем цикл
 
     # Проверяет, запущена ли служба TightVNC
     async def _check_tvnserver_run(self):
