@@ -11,6 +11,8 @@ from objects import *
 # Ключи словаря конфигурации
 PHARMACY_DICT_KEY = 'pharmacy'
 DEVICE_DICT_KEY = 'device'
+TASK_DATA_KEY = 'task_data'
+REBOOT_TIME = 'reboot_time'
 
 # Параметры task sheduler
 NOT_FOUND_FLAG = 'not_found'
@@ -97,16 +99,18 @@ def need_init_iisrestart(configuration: ConfigurationsObject):
     task_dict = get_task_shedule_dict()  # Получаем данные по задаче
     flag = task_dict.get('flag')  # Извлекаем флаг таска
 
-    # Добавляем данные по аптеке и устройству
-    task_dict[PHARMACY_DICT_KEY] = configuration.pharmacy_or_subgroup
-    task_dict[DEVICE_DICT_KEY] = configuration.device_or_name
-    task_dict['last_update'] = datetime.datetime.now().isoformat()  # Когда были получены данные
+    # Словарь для отправки
+    send_dict = {
+        PHARMACY_DICT_KEY: configuration.pharmacy_or_subgroup,
+        DEVICE_DICT_KEY: configuration.device_or_name,
+        TASK_DATA_KEY: task_dict
+    }
 
     try:
-        hello_dict = SSHConnection.get_hello_dict(REG_TASK_MODE, task_dict)  # Словарь приветсвия
+        hello_dict = SSHConnection.get_hello_dict(REG_TASK_MODE, send_dict)  # Словарь приветсвия
         sock = SSHConnection.get_tcp_socket()  # Создаём сокет
 
-        sock.connect((configuration.host, CONFIGURATION_DEMON_PORT))  # Устанавливаем соединение
+        sock.connect((configuration.host, SCHEDULER_DEMON_PORT))  # Устанавливаем соединение
         sock.send(hello_dict.encode())  # Отправляем данные
         sock.close()  # Закрываем сокет
 
@@ -120,10 +124,35 @@ def need_init_iisrestart(configuration: ConfigurationsObject):
         return None
 
 
+# Отправляем данные о последнем ребуте IIS
+def send_iis_restart_data(configuration: ConfigurationsObject):
+    LAST_REBOOT_DATA_MODE = 'last_reboot'
+
+    init_dict = {
+        PHARMACY_DICT_KEY: configuration.pharmacy_or_subgroup,
+        DEVICE_DICT_KEY: configuration.device_or_name,
+        REBOOT_TIME: datetime.datetime.now().isoformat()
+    }
+
+    try:
+        hello_dict = SSHConnection.get_hello_dict(LAST_REBOOT_DATA_MODE, init_dict)  # Словарь приветсвия
+        sock = SSHConnection.get_tcp_socket()  # Создаём сокет
+
+        sock.connect((configuration.host, SCHEDULER_DEMON_PORT))  # Устанавливаем соединение
+        sock.send(hello_dict.encode())  # Отправляем данные
+        sock.close()  # Закрываем сокет
+
+        configuration.settings.logger.info('Данные по ребуту IIS отправленны на сервер')
+    except Exception:
+        configuration.settings.logger.error('Не удалось отправить на сервер время последнего перезапуска IIS',
+                                            exc_info=True)
+
+
 # Перезапускает службу IIS
 def iis_restart(configuration: ConfigurationsObject):
     configuration.settings.logger.info('Служба IIS перезапущена')
     Popen('iisreset /RESTART', shell=True, stdout=DEVNULL, stderr=DEVNULL)   # Ребутим IIS
+    send_iis_restart_data(configuration)  # Отправляем данные на сервер
     time.sleep(1)
 
 
