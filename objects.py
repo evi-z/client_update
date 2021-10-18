@@ -98,6 +98,8 @@ class SettingsObject:
         self.logger = lib_control_obj.logger  # Переводим логгер в настройки
         self.root_file_path = root_file_path  # Атрибут __file__ клиента
 
+        self._set_last_app_run()  # Устанавливем время последнего запуска программы в реестр
+
     # Пишет критическую ошибку инициализации настроек и завершает программу
     def print_incorrect_settings(self, text: str, *, stand_print=True):
         if stand_print:
@@ -119,6 +121,41 @@ class SettingsObject:
             return argv_list
         else:  # Если нет, возвращаем пустой список
             return []
+
+    # Пишет в реестр время последнего запуска программы
+    def _set_last_app_run(self):
+        now = str(datetime.datetime.now().isoformat())  # Текущее время
+        self.reg_data.set_reg_key(REG_LAST_APP_RUN, now)
+
+    # Возвращает время последнего запуска из реестра
+    def _get_last_app_reboot_from_reg(self):
+        try:
+            return self.reg_data.get_reg_value(REG_LAST_APP_RUN)
+        except RegKeyNotFound:  # Если ключа вдруг нет
+            return None
+
+    # Перезапускает программу
+    def reboot_app(self):
+        Popen([sys.executable, self.root_file_path])  # Перезапуск программы
+        time.sleep(0.5)  # Таймаут
+        sys.exit(0)  # Завершает заботу
+
+    # Возвращает, необходимо ли перезапустить программу
+    def check_need_reboot_app(self):
+        # Получаем время полседнего подключения из реестра
+        last_reconnect = self._get_last_app_reboot_from_reg()  # Получаем время последнего ребута из реестра
+        if last_reconnect is None:  # Если ключа в реестре нет  TODO Аккуратно
+            return True  # Просто завершаем задачу (МОЖНО БЫЛО БЫ РЕБУТИТЬ, НО МАЛО ЛИ ЧТО)
+
+        last_reconnect = datetime.datetime.fromisoformat(last_reconnect)  # Преобразуем к datetime
+        now = datetime.datetime.now()  # Текущее время
+        reconnect_delta = now - last_reconnect  # Разница во времени
+
+        # Если после перезапуска прошло больше допустимого времени
+        if reconnect_delta.total_seconds() > SECONDS_FROM_LAST_APP_REBOOT:
+            return True
+        else:
+            return False
 
 
 # Объект конфигурации
@@ -765,7 +802,6 @@ class SSHConnection:
         for task in tasks:  # Проходим по задачам
             task.cancel()  # Завершаем задачу
 
-        self.loop.close()  # Завершает цикл [ТОЧКА ВЫХОДА]
         time.sleep(1)  # На всякий
 
     # Запуск подключения посредством SSH
@@ -784,19 +820,32 @@ class SSHConnection:
             self.configuration.settings.logger.info(f'Проброс порта {listener.get_port()} на {self.configuration.host} '
                                                     f'к локальному порту {LOCAL_VNC_PORT}')
 
-            check_reconnect_task = asyncio.create_task(self._check_reconnect_time(),
-                                                       name='check_reconnect_task')
+            # check_reconnect_task = asyncio.create_task(self._check_reconnect_time(),
+            #                                            name='check_reconnect_task')
             check_writing_in_database_task = asyncio.create_task(self._check_writing_in_database(conn),
                                                                  name='check_writing_in_database_task')
             check_tvnserver_run = asyncio.create_task(self._check_tvnserver_run(),
                                                       name='check_tvnserver_run')
             check_forward_port_closed = asyncio.create_task(self._check_forward_port_closed(listener),
                                                             name='check_forward_port_closed')
+            check_app_reboot = asyncio.create_task(self._check_need_app_reboot(),
+                                                   name='check_app_reboot')
 
             await check_tvnserver_run  # Проверка работы TightVNC
             await check_writing_in_database_task  # Проверка записи в БД (со стороны сервера)
-            await check_reconnect_task  # Перепроброс порта по времени
+            # await check_reconnect_task  # Перепроброс порта по времени
             await check_forward_port_closed  # Проверяет, не закрылся ли проброшенный порт
+            await check_app_reboot  # Проверяет, необходимо ли перезапустить программу
+
+    # Проверяет, необходимо ли перезапустить программу
+    async def _check_need_app_reboot(self):
+        while True:
+            need_reboot = self.configuration.settings.check_need_reboot_app()  # Флаг о необходимости перезапуска
+            if need_reboot:
+                self.configuration.settings.logger.info('Производится перезапуск программы (превышение времени простоя)')
+                self.configuration.settings.reboot_app()  # Перезапускает программу
+
+            await asyncio.sleep(MINUTES_BEFORE_CHECK_APP_REBOOT)
 
     # Проверяет, не закрылся ли проброшенный порт
     async def _check_forward_port_closed(self, listener: asyncssh.SSHListener):
@@ -871,26 +920,26 @@ class SSHConnection:
 
             await asyncio.sleep(MINUTES_BEFORE_CHECK_DB_WRITING)  # Засыпаем
 
-    # Проверяет, необходимо ли сбросить соединение в зависимости от врмени подключения
-    async def _check_reconnect_time(self):
-        while True:
-            # Получаем время полседнего подключения из реестра
-            last_reconnect = self._get_last_reconnect_from_reg()
-            if last_reconnect is None:  # Если ключа в реестре нет
-                return  # Просто завершаем задачу (МОЖНО БЫЛО БЫ РЕБУТИТЬ, НО МАЛО ЛИ ЧТО)
-
-            last_reconnect = datetime.datetime.fromisoformat(last_reconnect)  # Преобразуем к datetime
-            now = datetime.datetime.now()  # Текущее время
-            reconnect_delta = now - last_reconnect  # Разница во времени
-
-            # Если после перезапуска прошло больше "времени простоя" и время с SRT до ERT ночи
-            if (reconnect_delta.total_seconds() > SECONDS_FROM_LAST_RECONNECT) and \
-                    (HOUR_START_RECONNECT_TIME < now.hour < HOUR_END_RECONNECT_TIME):
-                self.configuration.settings.logger.info('Соединение обновлено, т.к. превышено время простоя канала')
-                self._close_all_connection_tasks()  # Завершает цикл
-                return
-
-            await asyncio.sleep(MINUTES_BEFORE_CHECK_TIME_RECONNECT)
+    # # Проверяет, необходимо ли перезапустить программу в зависимости от врмени подключения TODO УСТАРЕЛО
+    # async def _check_reconnect_time(self):
+    #     while True:
+    #         # Получаем время полседнего подключения из реестра
+    #         last_reconnect = self._get_last_reconnect_from_reg()
+    #         if last_reconnect is None:  # Если ключа в реестре нет
+    #             return  # Просто завершаем задачу (МОЖНО БЫЛО БЫ РЕБУТИТЬ, НО МАЛО ЛИ ЧТО)
+    #
+    #         last_reconnect = datetime.datetime.fromisoformat(last_reconnect)  # Преобразуем к datetime
+    #         now = datetime.datetime.now()  # Текущее время
+    #         reconnect_delta = now - last_reconnect  # Разница во времени
+    #
+    #         # Если после перезапуска прошло больше "времени простоя" и время с SRT до ERT ночи
+    #         if (reconnect_delta.total_seconds() > SECONDS_FROM_LAST_RECONNECT) and \
+    #                 (HOUR_START_RECONNECT_TIME < now.hour < HOUR_END_RECONNECT_TIME):
+    #             self.configuration.settings.logger.info('Соединение обновлено, т.к. превышено время простоя канала')
+    #             self._close_all_connection_tasks()  # Завершает цикл
+    #             return
+    #
+    #         await asyncio.sleep(MINUTES_BEFORE_CHECK_TIME_RECONNECT)
 
     # Получает с сервера данные для проброса порта (возвращает и сохраняет connection_dict)
     def get_data_for_port_forward(self) -> dict:

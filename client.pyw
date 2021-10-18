@@ -80,6 +80,10 @@ while True:
 
         settings.logger.warning('Цикл выполнения был прерван, производится перезапуск')
 
+    except asyncssh.misc.ChannelListenError:
+        settings.logger.error('Проброс порта к серверу не удался')
+        time.sleep(5)
+
     except socket.timeout:  # Ловим timeout
         settings.logger.error(
             f'Подключение к серверу {configuration.host} превысило время ожидания', exc_info=True)
@@ -102,6 +106,9 @@ while True:
     except Exception as e:
         logger.error(f'Неустановленная ошибка', exc_info=True)
         time.sleep(3)
+
+    except SystemExit:  # Перехватываем завершение работы
+        raise SystemExit
 
     except:
         logger.critical(f'Критическая ошибка программы', exc_info=True)

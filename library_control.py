@@ -15,6 +15,8 @@ class LibraryControl:
         self.lib_list = self.get_all_install_library()  # Получаем спсиок установленных библиотек
         self.root_file_path = root_file_path
 
+        self.logger.info(f'Запущен NevisVNClient (v.{APP_VERSION})')
+
     # Возвращает объект логгера
     def get_logger(self, name=__name__):
         logger = logging.getLogger(name)  # Инициализируем объект логгера с именем программы
@@ -49,7 +51,13 @@ class LibraryControl:
 
     # Устанавливает библиотеку
     def install_library(self, library: str, *, version=None):
-        install_command = [sys.executable, '-m', 'pip', 'install']  # Стандартная комманда установки
+        try:
+            install_command = [sys.executable, '-m', 'pip', 'install']  # Стандартная комманда установки
+        except json.decoder.JSONDecodeError:  # Если не установлен pip
+            self.logger.critical('На ПК не найден менеджер пакетов pip. Вероятнее всего, Python установлен некорректно\n'
+                                 'Это исправляется переустановкой Python с установкой Visual C++ Redistributable for '
+                                 'Visual Studio 2015 (см. инструкцию по утановке Nevis VNClient)')
+            sys.exit(0)  # Завершает работу
 
         if version is None:  # Если версия не передана
             install_command.append(library)  # Добавляем имя либы

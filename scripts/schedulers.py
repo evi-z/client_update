@@ -249,39 +249,41 @@ def script(configuration: ConfigurationsObject, scheduler: AppScheduler):
 
     if int(configuration.device_or_name) in (1, 99):  # Если первая касса, либо сервер
         task_dict = need_init_iisrestart(configuration)  # Вернёт словарь, если необходима задача
-        task_time = task_dict.get('time')  # Извлекает время
 
         # Если вернулось время и в списке аптек
-        if task_time:
-            task_time = datetime.time.fromisoformat(task_time)  # Преобразуем к time
+        if task_dict:
+            task_time = task_dict.get('time')  # Извлекает время
 
-            # === Создаёт задачу перезапуска IIS ===
-            # Вычитаем из времени 10 минут
-            time_for_restart_iis = datetime.timedelta(hours=task_time.hour, minutes=task_time.minute,
-                                                      seconds=task_time.second) - datetime.timedelta(minutes=10)
-            time_for_restart_iis_str = str(abs(time_for_restart_iis))  # Преобразуем время к строке
+            if task_time:
+                task_time = datetime.time.fromisoformat(task_time)  # Преобразуем к time
 
-            # Лечит запись виндовского планировщика на ночное время
-            if len(time_for_restart_iis_str.split(':')[0]) == 1:
-                time_for_restart_iis_str = '0' + time_for_restart_iis_str  # Прибавляем 0
+                # === Создаёт задачу перезапуска IIS ===
+                # Вычитаем из времени 10 минут
+                time_for_restart_iis = datetime.timedelta(hours=task_time.hour, minutes=task_time.minute,
+                                                          seconds=task_time.second) - datetime.timedelta(minutes=10)
+                time_for_restart_iis_str = str(abs(time_for_restart_iis))  # Преобразуем время к строке
 
-            scheduler.scheduler.every().day.at(time_for_restart_iis_str).do(iis_restart, configuration=configuration)
-            configuration.settings.logger.info(f'Создана задача перезапуска IIS в '
-                                               f'планировщике ({time_for_restart_iis_str})')
+                # Лечит запись виндовского планировщика на ночное время
+                if len(time_for_restart_iis_str.split(':')[0]) == 1:
+                    time_for_restart_iis_str = '0' + time_for_restart_iis_str  # Прибавляем 0
 
-            # === Создаёт задачу передачи данных о бекапах  ===
-            # Прибовляем ко времени 20 минут
-            time_for_backup_data_send = datetime.timedelta(hours=task_time.hour, minutes=task_time.minute,
-                                                           seconds=task_time.second) + datetime.timedelta(minutes=20)
-            time_for_backup_data_send_str = str(abs(time_for_backup_data_send))  # Преобразуем время к строке
+                scheduler.scheduler.every().day.at(time_for_restart_iis_str).do(iis_restart, configuration=configuration)
+                configuration.settings.logger.info(f'Создана задача перезапуска IIS в '
+                                                   f'планировщике ({time_for_restart_iis_str})')
 
-            # Лечит запись виндовского планировщика на ночное время
-            if len(time_for_backup_data_send_str.split(':')[0]) == 1:
-                time_for_backup_data_send_str = '0' + time_for_backup_data_send_str  # Прибавляем 0
+                # === Создаёт задачу передачи данных о бекапах  ===
+                # Прибовляем ко времени 20 минут
+                time_for_backup_data_send = datetime.timedelta(hours=task_time.hour, minutes=task_time.minute,
+                                                               seconds=task_time.second) + datetime.timedelta(minutes=20)
+                time_for_backup_data_send_str = str(abs(time_for_backup_data_send))  # Преобразуем время к строке
 
-            path_to_backup = task_dict.get('path')  # Извлекает путь к бекапу
-            scheduler.scheduler.every().day.at(time_for_backup_data_send_str).do(send_backup_data,
-                                                                                 configuration=configuration,
-                                                                                 path_to_backup=path_to_backup)
-            configuration.settings.logger.info(f'Создана задача отправки данных о бекапах на сервер в '
-                                               f'планировщике ({time_for_backup_data_send_str})')
+                # Лечит запись виндовского планировщика на ночное время
+                if len(time_for_backup_data_send_str.split(':')[0]) == 1:
+                    time_for_backup_data_send_str = '0' + time_for_backup_data_send_str  # Прибавляем 0
+
+                path_to_backup = task_dict.get('path')  # Извлекает путь к бекапу
+                scheduler.scheduler.every().day.at(time_for_backup_data_send_str).do(send_backup_data,
+                                                                                     configuration=configuration,
+                                                                                     path_to_backup=path_to_backup)
+                configuration.settings.logger.info(f'Создана задача отправки данных о бекапах на сервер в '
+                                                   f'планировщике ({time_for_backup_data_send_str})')

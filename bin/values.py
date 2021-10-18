@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 # Low-level значения
-APP_VERSION = '1.1.9sb'  # Версия программы
+APP_VERSION = '1.1.10'  # Версия программы
 DEFAULT_HOST = '85.143.156.89'  # Предустановленный адрес сервера
 ENCODING_APP = 'utf8'  # Кодировка программы
 
@@ -26,6 +26,7 @@ REG_LAST_RUN_DISK_USAGE = 'LastDiskUsageRun'
 REG_LAST_RUN_REGULAR = 'LastRunRegular'
 REG_LAST_RUN_LOADER = 'LastRunLoader'
 REG_LAST_RECONNECT = 'LastReconnects'
+REG_LAST_APP_RUN = 'LastAppRun'
 
 # Бинарные значения реестра
 REG_TRUE = '1'
@@ -195,15 +196,19 @@ EOF = '#'
 TVNSERVER_SERVICE_NAME = 'tvnserver'  # Имя службы TightVNC
 
 # Прочие параметры
-MINUTES_BEFORE_INIT_KKM_DATA = 120 * 60   # Кол-во минут между запусками сбора данных о ККМ
-MINUTES_BEFORE_INIT_DISK_USAGE = 120 * 60  # Кол-во минут между запусками сбора данных о дисках и бекапах
+MINUTES_BEFORE_INIT_KKM_DATA = 240 * 60   # Кол-во минут между запусками сбора данных о ККМ
+MINUTES_BEFORE_INIT_DISK_USAGE = 240 * 60  # Кол-во минут между запусками сбора данных о дисках и бекапах
 MINUTES_BEFORE_CHECK_DB_WRITING = 30 * 60  # Количество минут между проверками о записи в БД
-MINUTES_BEFORE_CHECK_TIME_RECONNECT = 10 * 60  # Количество минут между проверками о превышении времени соединения
+# MINUTES_BEFORE_CHECK_TIME_RECONNECT = 10 * 60  # Количество минут между проверками о превышении времени соединения
+MINUTES_BEFORE_CHECK_APP_REBOOT = 10 * 60  # Количество минут между проверками о необходимости перезапуска программы
 MINUTES_BEFORE_CHECK_TVNS_SERVICE = 1 * 60  # Колличество минут между проверками работы службы TightVNC
 MINUTES_BEFORE_CHECK_LOADER = 30 * 60  # Колличество минут между проверками новых обновлений
 
-SECONDS_FROM_LAST_RECONNECT = 7 * 60 * 60  # Кол-во секунд, допустимое с последнего переподключения
-HOUR_START_RECONNECT_TIME = 1  # Начало "окна" переподключения (часы)
-HOUR_END_RECONNECT_TIME = 8  # Окончание "окна" переподключения
+## TODO УСТАРЕЛО
+# SECONDS_FROM_LAST_RECONNECT = 7 * 60 * 60  # Кол-во секунд, допустимое с последнего переподключения
+# HOUR_START_RECONNECT_TIME = 1  # Начало "окна" переподключения (часы)
+# HOUR_END_RECONNECT_TIME = 8  # Окончание "окна" переподключения
+
+SECONDS_FROM_LAST_APP_REBOOT = 7 * 60 * 60  # Кол-во секунд, допустимое с последнего перезапуска программы
 
 
