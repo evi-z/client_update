@@ -72,22 +72,8 @@ def get_hello_dict(mode, data=None):
 # Инициализирует клиента (до цикла)
 def init_client():
     control_clone_client()  # Проверям, не запущенн ли уже client
-    init_tvns()  # Инициализирует службу TightVnc
     run_init_cmd()  # Побочные настройки cmd
     run_init_reg()  # Побочные настройки реестра
-
-
-# Инициализирует TightVNC
-def init_tvns():
-    # Импотрируем настройки в реестр
-    path_to_reg_file = os.path.join(ROOT_PATH, VNC_SERVICE_REG_FILE)  # Полный путь к файлу
-
-    # НЕ ТРОГАЙ ЭТОТ КОД! ОН РАБОТАЕТ ТОЛЬКО С DEVNULL, ИНЧАЕ ВИСНИТ ТУТ
-    run(f'reg import "{path_to_reg_file}"', shell=True, stdout=DEVNULL, stderr=STDOUT)
-
-    tvns_file = os.path.join(ROOT_PATH, TVNSERVER_FILE_PATH)  # Абсолютный путь к tvns
-    # СЛУЖБА НЕ РЕГИСТРИРУЕТСЯ БЕЗ ПРАВ АДМИНИСТРАТОРА !
-    run([tvns_file, '-reinstall', '-silent'], stderr=PIPE, stdout=PIPE, stdin=PIPE)  # Регистрируем службу
 
 
 # Инициализирует всевозможные обращения к коммандной строке

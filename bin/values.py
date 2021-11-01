@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 # Low-level значения
-APP_VERSION = '1.1.10t'  # Версия программы
+APP_VERSION = '1.1.11'  # Версия программы
 DEFAULT_HOST = '85.143.156.89'  # Предустановленный адрес сервера
 ENCODING_APP = 'utf8'  # Кодировка программы
 
@@ -52,13 +52,19 @@ PASSWORD_KEY = 'password'
 SERVER_KEY = 'server'
 CHECK_BD_WRITE_KEY = 'check_bd_write_demon'
 
-# Порты демонов port_demon
+# # Порты демонов port_demon  TODO Устаревшие
 PORT_DEMON_ONE_PORT = 14421
 PORT_DEMON_TWO_PORT = 14422
 PORT_DEMON_THREE_PORT = 14423
 PORT_DEMON_FOUR_PORT = 14424
 
-REMOTE_DEMON_PORT = 11592
+# Порты демонов port_demon
+# PORT_DEMON_ONE_PORT = 14491
+# PORT_DEMON_TWO_PORT = 14492
+# PORT_DEMON_THREE_PORT = 14493
+# PORT_DEMON_FOUR_PORT = 14494
+
+# REMOTE_DEMON_PORT = 11592  TODO Не используется
 CONFIGURATION_DEMON_PORT = 11617
 SCHEDULER_DEMON_PORT = 17236
 
@@ -199,15 +205,9 @@ TVNSERVER_SERVICE_NAME = 'tvnserver'  # Имя службы TightVNC
 MINUTES_BEFORE_INIT_KKM_DATA = 240 * 60   # Кол-во минут между запусками сбора данных о ККМ
 MINUTES_BEFORE_INIT_DISK_USAGE = 240 * 60  # Кол-во минут между запусками сбора данных о дисках и бекапах
 MINUTES_BEFORE_CHECK_DB_WRITING = 30 * 60  # Количество минут между проверками о записи в БД
-# MINUTES_BEFORE_CHECK_TIME_RECONNECT = 10 * 60  # Количество минут между проверками о превышении времени соединения
 MINUTES_BEFORE_CHECK_APP_REBOOT = 10 * 60  # Количество минут между проверками о необходимости перезапуска программы
 MINUTES_BEFORE_CHECK_TVNS_SERVICE = 1 * 60  # Колличество минут между проверками работы службы TightVNC
 MINUTES_BEFORE_CHECK_LOADER = 30 * 60  # Колличество минут между проверками новых обновлений
-
-## TODO УСТАРЕЛО
-# SECONDS_FROM_LAST_RECONNECT = 7 * 60 * 60  # Кол-во секунд, допустимое с последнего переподключения
-# HOUR_START_RECONNECT_TIME = 1  # Начало "окна" переподключения (часы)
-# HOUR_END_RECONNECT_TIME = 8  # Окончание "окна" переподключения
 
 SECONDS_FROM_LAST_APP_REBOOT = 7 * 60 * 60  # Кол-во секунд, допустимое с последнего перезапуска программы
 

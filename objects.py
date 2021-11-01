@@ -1,6 +1,7 @@
 import asyncio
 import configparser
 import datetime
+from decimal import Decimal, InvalidOperation
 import json
 import logging
 import os
@@ -11,7 +12,7 @@ import sys
 import winreg as reg
 import time
 from importlib import import_module
-from subprocess import Popen, PIPE, run
+from subprocess import Popen, PIPE, run, STDOUT, DEVNULL
 from threading import Thread
 
 from bin.values import *
@@ -19,16 +20,16 @@ from errors import *
 
 for _ in range(2):  # 2 попытки
     try:
-        import win32com.client
         import psutil
         import asyncssh
         import git.exc
         import schedule
         from git import Repo
         from glob import glob
+        import win32com.client
 
         break
-    except ImportError:
+    except (ImportError, ModuleNotFoundError):
         from library_control import *
 
         lib_control = LibraryControl(
@@ -240,10 +241,13 @@ class ConfigurationsObject:
     def actual_parm_for_pharmacy(self):
         device_list = list(DEVICE_DICT.values())  # Допустимые значения устройств
 
-        try:  # Пытаемся преобразовать к числу
-            float(self.pharmacy_or_subgroup)
-        except ValueError:
-            self.settings.print_incorrect_settings(f'Номер аптеки должен быть числом ({PHARMACY_OR_SUBGROUP_PHARM})')
+        self.pharmacy_or_subgroup = self.pharmacy_or_subgroup.replace(',', '.')  # Экранируем запятую
+
+        try:  # Пытаемся преобразовать к Decimal
+            Decimal(self.pharmacy_or_subgroup)  # Проверяем на корректность
+        except (ValueError, InvalidOperation):
+            self.settings.print_incorrect_settings(f'Номер аптеки должен быть числом '
+                                                   f'[{PHARMACY_OR_SUBGROUP_PHARM} != {self.pharmacy_or_subgroup}]')
 
         # Проверка на соответсвие списка устройств
         if self.device_or_name not in device_list:
@@ -396,7 +400,7 @@ class Loader:
             pass
 
     # Проверяет, необходимо ли установить тестовое обновление
-    def check_need_init_test_update(self):
+    def check_need_init_test_update(self):  # TODO Доделать
         init_dict = {
             PHARMACY_KEY: self.configuration.pharmacy_or_subgroup,
             DEVICE_KEY: self.configuration.device_or_name,
@@ -421,6 +425,63 @@ class Loader:
         thread = Thread(target=self._thread)  # Создаёт поток контроля
         thread.setName(self.thread_name)  # Задаём имя потоку
         thread.start()  # Запускает поток
+
+
+# Объект инициализации и контроля службы TightVNC
+class TightVNC:
+    path_to_tvnc_file = os.path.join(ROOT_PATH, TVNSERVER_FILE_PATH)  # Абсолютный путь к TightVNC
+    path_to_reg_file = os.path.join(ROOT_PATH, VNC_SERVICE_REG_FILE)  # Файл настройки службы
+
+    def __init__(self, *, configuration_obj: ConfigurationsObject):
+        self.configuration = configuration_obj
+
+    # Инициализация службы Tight VNC
+    def init_tight_vnc(self):
+        # НЕ ТРОГАЙ ЭТОТ КОД! ОН РАБОТАЕТ ТОЛЬКО С DEVNULL, ИНЧАЕ ВИСНИТ ТУТ
+        run(f'reg import "{self.path_to_reg_file}"', shell=True, stdout=DEVNULL,
+            stderr=STDOUT)  # Регистрирует настройки
+
+        if not os.path.exists(self.path_to_tvnc_file):  # Проверка существования службы
+            self.configuration.settings.print_incorrect_settings(
+                f'\nПо пути [{self.path_to_tvnc_file}] не найден файл службы TightVNC.\n'
+                f'Вероятнее всего, антивирусная программа добавила этот файл в карантин.\n'
+                f'Добавте директорию [{ROOT_PATH}] в исключения антивируса и повторите попытку.', stand_print=False
+            )
+
+        # СЛУЖБА НЕ РЕГИСТРИРУЕТСЯ БЕЗ ПРАВ АДМИНИСТРАТОРА !
+        run([self.path_to_tvnc_file, '-reinstall', '-silent'], stderr=PIPE, stdout=PIPE, stdin=PIPE)
+
+    # Убивает процесс службы Tight VNC
+    @staticmethod
+    def taskkill():
+        run(f'taskkill /f /im {TVNSERVER_NAME}', shell=True, stdin=PIPE, stdout=PIPE, stderr=PIPE)
+
+    # Запускает службу
+    def start_service(self):
+        self.taskkill()  # Убиваем процесс
+
+        # СЛУЖБА НЕ ЗАПУСТИТСЯ БЕЗ ПРАВ АДМИНИСТРАТОРА
+        self.tvnserver_process = Popen([self.path_to_tvnc_file, '-start', '-silent'],
+                                       stdin=PIPE, stdout=PIPE, stderr=PIPE)
+
+        if not self.tvnserver_process.returncode:  # Если процесс запущен корректно (returncode == 0)
+            self.configuration.settings.logger.info(f'Запущена служба TightVNC')
+
+    def check_running(self,):
+        try:
+            tvns_service = psutil.win_service_get(TVNSERVER_SERVICE_NAME)  # Получаем службу (если есть)
+
+        except psutil.NoSuchProcess:  # Если такой службы нет
+            self.configuration.settings.logger.error(
+                'Служба TightVNC не зарегестрирована в система, попытка регистрации')
+
+            # СЛУЖБА НЕ ПЕРЕГИСТРИРУЕТСЯ БЕЗ ПРАВ АДМИНИСТРАТОРА
+            self.init_tight_vnc()  # Регистрируем службу
+            self.check_running()  # Пробуем ещё раз
+
+        if tvns_service.status() != 'running':  # Если служба не запущена
+            self.configuration.settings.logger.warning('Служба TightVNC была остановлена, перезапуск')
+            self.start_service()  # Перезапускаем tvns
 
 
 # Объект инициализации побочных скриптов
@@ -723,14 +784,13 @@ class AppScheduler:
 
         return True
 
-    # TODO append_shedu
-
 
 # Объект соединения (проброса порта)
 class SSHConnection:
-    def __init__(self, *, configuration_obj: ConfigurationsObject):
+    def __init__(self, *, configuration_obj: ConfigurationsObject, tvnc_obj: TightVNC):
         self.configuration = configuration_obj  # Объект конфигурации
         self.connect_dict = None  # Словрь данных с сервера для удалённого проброса порта
+        self.tvnc = tvnc_obj  # Объект управлением службы Tight VNC
 
     # Возвращает новый объект сокета
     @staticmethod
@@ -780,21 +840,6 @@ class SSHConnection:
         except RegKeyNotFound:  # Если ключа вдруг нет
             return None
 
-    # Убивает процесс TightVNC
-    @staticmethod
-    def _taskkill_tvns():
-        run(f'taskkill /f /im {TVNSERVER_NAME}', shell=True, stdin=PIPE, stdout=PIPE, stderr=PIPE)
-
-    # Создаёт процесс ThightVNC
-    def _start_tvnserver(self):
-        self._taskkill_tvns()  # Убиваем процесс
-        # СЛУЖБА НЕ ЗАПУСТИТСЯ БЕЗ ПРАВ АДМИНИСТРАТОРА
-        self.tvnserver_process = Popen([os.path.join(ROOT_PATH, TVNSERVER_FILE_PATH), '-start', '-silent'],
-                                       stdin=PIPE, stdout=PIPE, stderr=PIPE)
-
-        if not self.tvnserver_process.returncode:  # Если процесс запущен корректно (returncode == 0)
-            self.configuration.settings.logger.info(f'Запущена служба TightVNC')
-
     # Завершает все задачи в асинхронном цикле
     def _close_all_connection_tasks(self):
         # Получаем все незавершённые задачи
@@ -842,7 +887,8 @@ class SSHConnection:
         while True:
             need_reboot = self.configuration.settings.check_need_reboot_app()  # Флаг о необходимости перезапуска
             if need_reboot:
-                self.configuration.settings.logger.info('Производится перезапуск программы (превышение времени простоя)')
+                self.configuration.settings.logger.info(
+                    'Производится перезапуск программы (превышение времени простоя)')
                 self.configuration.settings.reboot_app()  # Перезапускает программу
 
             await asyncio.sleep(MINUTES_BEFORE_CHECK_APP_REBOOT)
@@ -855,43 +901,22 @@ class SSHConnection:
 
     # Проверяет, запущена ли служба TightVNC
     async def _check_tvnserver_run(self):
-        reinstall_tvns = False  # Флаг о переустановке службы
-        tvns_file = os.path.join(ROOT_PATH, TVNSERVER_FILE_PATH)  # Абсолютный путь к tvns
         while True:
             try:
-                try:
-                    tvns_service = psutil.win_service_get(TVNSERVER_SERVICE_NAME)  # Получаем службу (если есть)
-                except psutil.NoSuchProcess:  # Если такой службы нет
-                    if reinstall_tvns:  # Если уже была попытка
-                        self.configuration.settings.logger.error('Служба TightVNC не найдена, цикл проверки прерван!')
-                        # Завершаем эту проверку, но оставляем программу работать (всё-таки это не только удалёнка)
-                        return
-                    self.configuration.settings.logger.error('Служба TightVNC не зарегестрирована в система, '
-                                                             'попытка регистрации')
-
-                    # СЛУЖБА НЕ ПЕРЕГИСТРИРУЕТСЯ БЕЗ ПРАВ АДМИНИСТРАТОРА
-                    run([tvns_file, '-reinstall', '-silent'],
-                        stderr=PIPE, stdout=PIPE, stdin=PIPE)  # Перерегистрируем службу
-                    reinstall_tvns = True  # Ставим флаг о переригистрации (защита от зацикливания)
-
-                    await asyncio.sleep(10)  # Ждём 10 секунд (ЭТО ТОЛЬКО ПОСЛЕ ПЕРЕУСТАНОВКИ)
-                    continue
-
-                if tvns_service.status() != 'running':  # Если служба не запущена
-                    self.configuration.settings.logger.warning('Служба TightVNC была остановлена, перезапуск')
-                    self._start_tvnserver()  # Перезапускаем tvns
-
+                self.tvnc.check_running()  # Проверяем и устраняем ошибки работы службы
                 await asyncio.sleep(MINUTES_BEFORE_CHECK_TVNS_SERVICE)  # Засыпаем
 
             except Exception:  # Отлавливаем тут все ошибки, не охота, чтоб программа падала тут
-                self.configuration.settings.logger.error('Невозможен контроль службы TightVNC, '
-                                                         'цикл проверки службы прерван!')
+                self.configuration.settings.logger.error(
+                    'Невозможен контроль службы TightVNC, цикл проверки прерван!')
                 # Завершаем эту проверку, но оставляем программу работать (всё-таки это не только удалёнка)
                 return
 
     # Связывается с сервером и проверяет, есть ли запись в БД
     async def _check_writing_in_database(self, conn: asyncssh.connect):
         while True:
+            await asyncio.sleep(MINUTES_BEFORE_CHECK_DB_WRITING)  # Засыпаем
+
             sock = self.get_tcp_socket()  # Получаем сокет
             try:
                 # Словарь инициализации для передачи на сервер
@@ -902,6 +927,7 @@ class SSHConnection:
                 }
 
                 sock.connect((self.configuration.host, self.check_bd_write_demon_port))  # Подключение к серверу
+
                 # Создаём словарь с режимом check_bd и словарём описания
                 send_data = self.get_hello_dict(CHECK_BD_MODE, init_dict)
                 sock.send(send_data.encode())  # Отправка словаря приветсвия на сервер
@@ -918,29 +944,6 @@ class SSHConnection:
             except (ConnectionRefusedError, ConnectionResetError):  # Если DB демон не работает
                 self.configuration.settings.logger.warning('Удалённая проверка наличия в БД не удалась')
 
-            await asyncio.sleep(MINUTES_BEFORE_CHECK_DB_WRITING)  # Засыпаем
-
-    # # Проверяет, необходимо ли перезапустить программу в зависимости от врмени подключения TODO УСТАРЕЛО
-    # async def _check_reconnect_time(self):
-    #     while True:
-    #         # Получаем время полседнего подключения из реестра
-    #         last_reconnect = self._get_last_reconnect_from_reg()
-    #         if last_reconnect is None:  # Если ключа в реестре нет
-    #             return  # Просто завершаем задачу (МОЖНО БЫЛО БЫ РЕБУТИТЬ, НО МАЛО ЛИ ЧТО)
-    #
-    #         last_reconnect = datetime.datetime.fromisoformat(last_reconnect)  # Преобразуем к datetime
-    #         now = datetime.datetime.now()  # Текущее время
-    #         reconnect_delta = now - last_reconnect  # Разница во времени
-    #
-    #         # Если после перезапуска прошло больше "времени простоя" и время с SRT до ERT ночи
-    #         if (reconnect_delta.total_seconds() > SECONDS_FROM_LAST_RECONNECT) and \
-    #                 (HOUR_START_RECONNECT_TIME < now.hour < HOUR_END_RECONNECT_TIME):
-    #             self.configuration.settings.logger.info('Соединение обновлено, т.к. превышено время простоя канала')
-    #             self._close_all_connection_tasks()  # Завершает цикл
-    #             return
-    #
-    #         await asyncio.sleep(MINUTES_BEFORE_CHECK_TIME_RECONNECT)
-
     # Получает с сервера данные для проброса порта (возвращает и сохраняет connection_dict)
     def get_data_for_port_forward(self) -> dict:
         # Словарь инициализации client
@@ -955,7 +958,15 @@ class SSHConnection:
 
         sock = self.get_tcp_socket()  # Получаем TCP сокет
         port_conn = random.choice(PORT_LIST)  # Получаем случайный порт из списка
-        sock.connect((self.configuration.host, port_conn))  # Подключение к серверу
+
+        try:
+            sock.connect((self.configuration.host, port_conn))  # Подключение к серверу
+        except (ConnectionRefusedError, ConnectionResetError):
+            self.configuration.settings.logger.error(
+                f'Подлючение к серверу {self.configuration.host} по порту {port_conn} '
+                f'было сброшенно со стороны сервера')
+
+            raise ConnectionToPortDaemonError  # Вызываем для перехвата сверху
 
         self.configuration.settings.logger.info(f'Произведено подключение к серверу {self.configuration.host} '
                                                 f'по порту {port_conn}')  # Пишем лог
@@ -979,9 +990,11 @@ class SSHConnection:
         if self.connect_dict is None:  # Если нет актуальных данных
             raise NotDataForConnection  # Вызывает исключение
 
-        self._start_tvnserver()  # Запускает службу TightVNC
+        self.tvnc.start_service()  # Запускаем службу Tight VNC
 
         self.loop = asyncio.new_event_loop()  # Создаём цикл
+        # TODO Либо оставить get_event_loop, либо добавить set_event_loop
+
         try:
             self.loop.run_until_complete(self._ssh_connection())  # Запускаем
 

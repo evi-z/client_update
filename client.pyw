@@ -24,7 +24,7 @@ try:
     from bin.values import *
     from funs.fun import *
     from errors import *
-except ImportError:  # Перехватываем исключения импорта в модулях
+except (ImportError, ModuleNotFoundError):  # Перехватываем исключения импорта в модулях
     lib_control.logger.critical('Критическая ошибка импорта необходимых модулей', exc_info=True)
 
 
@@ -74,7 +74,13 @@ except Exception as e:
 
 while True:
     try:  # Отлов ошибок
-        connection = SSHConnection(configuration_obj=configuration)  # Создаём объект подключения
+        tvnc_obj = TightVNC(configuration_obj=configuration)
+        tvnc_obj.init_tight_vnc()  # Инициализирует службу TightVNC
+
+        connection = SSHConnection(
+            configuration_obj=configuration,
+            tvnc_obj=tvnc_obj
+        )  # Создаём объект подключения
         connection.get_data_for_port_forward()  # Получаем с сервера данные для проброса порта
         connection.start_ssh_connection()  # Запускаем цикл соединения
 
@@ -88,6 +94,9 @@ while True:
         settings.logger.error(
             f'Подключение к серверу {configuration.host} превысило время ожидания', exc_info=True)
         time.sleep(5)
+
+    except ConnectionToPortDaemonError:  # Перехватываем снизу
+        pass
 
     except (ConnectionRefusedError, ConnectionResetError):  # Подключение сброшенно со стороны сервера
         settings.logger.error(f'Подлючение к серверу {configuration.host} было сброшенно со стороны сервера')
