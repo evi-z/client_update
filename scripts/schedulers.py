@@ -1,7 +1,14 @@
 import datetime
+import os
+import pathlib
+import random
 import subprocess
+import sys
 import time
 from subprocess import Popen, DEVNULL
+import winreg as reg
+
+from typing import Union
 
 import win32com.client
 
@@ -14,6 +21,7 @@ DEVICE_DICT_KEY = 'device'
 TASK_DATA_KEY = 'task_data'
 REBOOT_TIME_KEY = 'reboot_time'
 BACKUP_DATA_KEY = 'backup_data'
+REG_DATA_KEY = 'reg_data'
 
 # Параметры task sheduler
 NOT_FOUND_FLAG = 'not_found'
@@ -28,7 +36,7 @@ ZIP_BASE_BACKUP = 'zip_base'
 
 
 # Возвращает развёрнутый словарь задачи планировщика
-def get_task_shedule_dict():
+def get_task_shedule_dict() -> dict:
     # Планировщик задач
     scheduler = win32com.client.Dispatch('Schedule.Service')  # Подключаемся к службе планировщика
     scheduler.Connect()
@@ -104,13 +112,15 @@ def need_init_iisrestart(configuration: ConfigurationsObject):
     REG_TASK_MODE = 'reg_task'  # Режим работы проверки регзадания
 
     task_dict = get_task_shedule_dict()  # Получаем данные по задаче
-    flag = task_dict.get('flag')  # Извлекаем флаг таска
+    reg_dict = check_reg_param()  # Получаем параметры из реестра (если есть)
+
+    task_dict[REG_DATA_KEY] = reg_dict
 
     # Словарь для отправки
     send_dict = {
         PHARMACY_DICT_KEY: configuration.pharmacy_or_subgroup,
         DEVICE_DICT_KEY: configuration.device_or_name,
-        TASK_DATA_KEY: task_dict
+        TASK_DATA_KEY: task_dict,
     }
 
     try:
@@ -125,6 +135,7 @@ def need_init_iisrestart(configuration: ConfigurationsObject):
         configuration.settings.logger.error('Не удалось отправить на сервер данные по регзаданию планировщика',
                                             exc_info=True)
 
+    flag = task_dict.get('flag')  # Извлекаем флаг таска
     if flag == CORRECT_FLAG:  # Если корректно
         return task_dict  # Возвращаем время таска
     else:
@@ -132,7 +143,7 @@ def need_init_iisrestart(configuration: ConfigurationsObject):
 
 
 # Отправляем данные о последнем ребуте IIS
-def send_iis_restart_data(configuration: ConfigurationsObject):
+def send_iis_reboot_data(configuration: ConfigurationsObject):
     LAST_REBOOT_DATA_MODE = 'last_reboot'
 
     init_dict = {
@@ -140,6 +151,9 @@ def send_iis_restart_data(configuration: ConfigurationsObject):
         DEVICE_DICT_KEY: configuration.device_or_name,
         REBOOT_TIME_KEY: datetime.datetime.now().isoformat()
     }
+
+    # Засыпает на случайное время перед отправкой
+    time.sleep(random.randint(0, 5 * 60) + random.random())
 
     try:
         hello_dict = SSHConnection.get_hello_dict(LAST_REBOOT_DATA_MODE, init_dict)  # Словарь приветсвия
@@ -155,32 +169,48 @@ def send_iis_restart_data(configuration: ConfigurationsObject):
                                             exc_info=True)
 
 
-# Перезапускает службу IIS
-def iis_restart(configuration: ConfigurationsObject):
-    configuration.settings.logger.info('Служба IIS перезапущена')
-    Popen('iisreset /RESTART', shell=True, stdout=DEVNULL, stderr=DEVNULL)  # Ребутим IIS
-    send_iis_restart_data(configuration)  # Отправляем данные на сервер
+# Останавливает службу IIS и отправляет данные об этом на сервер
+def iis_stop(configuration: ConfigurationsObject):
+    configuration.settings.logger.info('Служба IIS остановлена')
+    Popen('iisreset /STOP', shell=True, stdout=DEVNULL, stderr=DEVNULL)  # Останавливаем IIS
+    send_iis_reboot_data(configuration)  # Отправляем данные на сервер
     time.sleep(1)
 
 
+# Запускает службу IIS
+def iis_start(configuration: ConfigurationsObject, path_to_backup: Union[Path, None]):
+    configuration.settings.logger.info('Служба IIS запущена')
+    Popen('iisreset /START', shell=True, stdout=DEVNULL, stderr=DEVNULL)  # Запускаем IIS
+
+    time.sleep(random.randint(0, 5 * 60) + random.random())  # Засыпает на случайное время
+
+    try:
+        send_backup_data(configuration, path_to_backup)  # Отправляем данные по бекапам
+    except Exception:
+        configuration.settings.logger.info(
+            'Не удалось отправить данные по бекапам на сервер', exc_info=True
+        )
+
+
 # Получает данные о последнем бекапе
-def get_base_backup_data(path_to_reg: str):
-    root_path = Path(path_to_reg).parent  # Получаем путь к директории
-    listdir = os.listdir(root_path)  # Список файлов
+def get_base_backup_data(path_to_backup: Path):
+    listdir = os.listdir(path_to_backup)  # Список файлов
 
     zip_list = []  # Список zip-архивов
     base_list = []  # Список полновесных бекапов
     for file in listdir:  # Проходим по файлам
         if file.endswith('.zip'):  # Если zip-архив
-            zip_list.append(file)
+            zip_list.append(path_to_backup / file)
 
         if file.endswith('.1CD'):  # Если полновесная база
-            base_list.append(file)
+            base_list.append(path_to_backup / file)
+
+        if os.path.isdir(path_to_backup / file):  # Если папка
+            base_list.append(path_to_backup / file)
 
     last_zip_time = 0
     last_zip_file = None
-    for zip_back in zip_list:  # Проходим по zip базам (если есть)
-        path_to_file = root_path / zip_back  # Путь к файлу
+    for path_to_file in zip_list:  # Проходим по zip базам (если есть)
         creation_time = path_to_file.stat().st_mtime  # Время последней модификации
 
         if creation_time > last_zip_time:  # Если время больше
@@ -189,8 +219,7 @@ def get_base_backup_data(path_to_reg: str):
 
     last_base_time = 0
     last_base_file = None
-    for base_back in base_list:  # Проходим по полновесным базам (если есть)
-        path_to_file = root_path / base_back  # Путь к файлу
+    for path_to_file in base_list:  # Проходим по полновесным базам (если есть)
         creation_time = path_to_file.stat().st_mtime  # Время последней модификации
 
         if creation_time > last_base_time:  # Если время больше
@@ -218,11 +247,13 @@ def get_base_backup_data(path_to_reg: str):
 
 
 # Отправляет данные по бекапам на сервер
-def send_backup_data(configuration: ConfigurationsObject, path_to_backup: str):
+def send_backup_data(configuration: ConfigurationsObject, path_to_backup: Union[Path, None]):
+    if path_to_backup is None:  # Если пути нет - ничего не делаем
+        return
+
     BACKUP_DATA_MODE = 'backup_data_mode'
 
     backup_data = get_base_backup_data(path_to_backup)  # Получаем данные по бекапам
-
     init_dict = {
         PHARMACY_DICT_KEY: configuration.pharmacy_or_subgroup,
         DEVICE_DICT_KEY: configuration.device_or_name,
@@ -243,47 +274,124 @@ def send_backup_data(configuration: ConfigurationsObject, path_to_backup: str):
                                             exc_info=True)
 
 
+# Проверяет параметры в Report (печать DataMatrix)
+def check_reg_param():
+    path_to_reg_report_1c = [
+        (reg.HKEY_USERS, r'.DEFAULT\Software\1C\1Cv8\Report'),
+        (reg.HKEY_CURRENT_USER, r'SOFTWARE\1C\1Cv8\Report')
+    ]
+
+    k = None
+    for key, sub_key in path_to_reg_report_1c:  # Ищем ключ в реестре
+        try:
+            k = reg.OpenKey(key, sub_key, 0, reg.KEY_ALL_ACCESS)
+            break
+        except FileNotFoundError:
+            pass
+
+    if k is None:  # Если не найден ключ
+        return None
+
+    count_keys = reg.QueryInfoKey(k)[1]  # Колличество ключей раздела реестра
+    reg_dict = {}  # Словаь ключей реестра
+    for index in range(count_keys):  # Проходим по ключам
+        key, value, types = reg.EnumValue(k, index)
+        reg_dict[key] = value  # Пишем ключ - значение
+
+    return reg_dict
+
+
+# Возвращает путь к бекапам, либо None
+def get_path_for_backup(reg_data: dict, task_dict: dict) -> Union[Path, None]:
+    path_to_backup = reg_data.get('PathBackUP')  # Извлекает путь к бекапу из реестра (если есть)
+    if not path_to_backup:
+
+        path_to_reg = task_dict.get('path')  # Извлекает путь к бекапу из файла регазадания
+        if not path_to_backup:
+            return None
+
+        path_to_backup = Path(path_to_reg).parent  # Получаем путь к директории
+
+    else:
+        path_to_backup = Path(path_to_backup)
+
+    return path_to_backup
+
+
 # Возвращает время задачи, либо None
 def script(configuration: ConfigurationsObject, scheduler: AppScheduler):
-    configuration.settings.logger.info(f'Корректировка настроек планировщика')
+    if not 200 < float(configuration.pharmacy_or_subgroup) < 300:  # TODO
+        return
 
     if int(configuration.device_or_name) in (1, 99):  # Если первая касса, либо сервер
+        configuration.settings.logger.info(f'Корректировка настроек планировщика')
+
         task_dict = need_init_iisrestart(configuration)  # Вернёт словарь, если необходима задача
+        reg_data = task_dict.get(REG_DATA_KEY, {})
 
-        # Если вернулось время и в списке аптек
-        if task_dict:
-            task_time = task_dict.get('time')  # Извлекает время
+        if not reg_data:
+            configuration.settings.logger.info('Ключ Report в реестре не обнаружен, настройка планировщика прервана')
 
-            if task_time:
-                task_time = datetime.time.fromisoformat(task_time)  # Преобразуем к time
+        type_ib = reg_data.get('TypeIB')  # Получаем тип БД
+        if type_ib == 'Server':
+            configuration.settings.logger.info('1С подключена к SQL БД, настройка планировщика не требуется')
+            return  # Завершаем работу
 
-                # === Создаёт задачу перезапуска IIS ===
-                # Вычитаем из времени 10 минут
-                time_for_restart_iis = datetime.timedelta(hours=task_time.hour, minutes=task_time.minute,
-                                                          seconds=task_time.second) - datetime.timedelta(minutes=10)
-                time_for_restart_iis_str = str(abs(time_for_restart_iis))  # Преобразуем время к строке
+        backup_type = reg_data.get('BackUPType')  # Как настроено бекапирование
+        if not backup_type:
+            configuration.settings.logger.info(
+                'Не обнаружен тип резервного копирования, настройка планировщика прервана')
+            return
 
-                # Лечит запись виндовского планировщика на ночное время
-                if len(time_for_restart_iis_str.split(':')[0]) == 1:
-                    time_for_restart_iis_str = '0' + time_for_restart_iis_str  # Прибавляем 0
+        if backup_type == 'ТехПерерыв':
+            configuration.settings.logger.info(
+                'Настройки резервного копирования соответсвуют круглосуточной аптеки, настройка планировщика завершена'
+            )
+            return
 
-                scheduler.scheduler.every().day.at(time_for_restart_iis_str).do(iis_restart, configuration=configuration)
-                configuration.settings.logger.info(f'Создана задача перезапуска IIS в '
-                                                   f'планировщике ({time_for_restart_iis_str})')
+        task_time = task_dict.get('time')  # Извлекает время
+        if task_time and backup_type == 'ПоРасписанию':  # Если есть время регзадания и аптека не круглосуточная
+            task_time = datetime.time.fromisoformat(task_time)  # Преобразуем к time
 
-                # === Создаёт задачу передачи данных о бекапах  ===
-                # Прибовляем ко времени 20 минут
-                time_for_backup_data_send = datetime.timedelta(hours=task_time.hour, minutes=task_time.minute,
-                                                               seconds=task_time.second) + datetime.timedelta(minutes=20)
-                time_for_backup_data_send_str = str(abs(time_for_backup_data_send))  # Преобразуем время к строке
+            # === Отправка данных по бекапам =====
+            path_to_backup = None
+            try:
+                path_to_backup = get_path_for_backup(reg_data, task_dict)  # Получаем данные по бекапам (либо None)
+                send_backup_data(configuration=configuration, path_to_backup=path_to_backup)
+            except Exception:
+                configuration.settings.logger.error(
+                    'Не удалось отправить данные о бекапах базы на сервер', exc_info=True
+                )
 
-                # Лечит запись виндовского планировщика на ночное время
-                if len(time_for_backup_data_send_str.split(':')[0]) == 1:
-                    time_for_backup_data_send_str = '0' + time_for_backup_data_send_str  # Прибавляем 0
+            # === Создаёт задачу перезапуска IIS ===
+            task_time_timedelta = datetime.timedelta(hours=task_time.hour, minutes=task_time.minute,
+                                                     seconds=task_time.second)
+            # Вычитаем из времени 10 минут (ОСТАНОВКА IIS)
+            time_for_stop_iis = task_time_timedelta - datetime.timedelta(minutes=10)
 
-                path_to_backup = task_dict.get('path')  # Извлекает путь к бекапу
-                scheduler.scheduler.every().day.at(time_for_backup_data_send_str).do(send_backup_data,
-                                                                                     configuration=configuration,
-                                                                                     path_to_backup=path_to_backup)
-                configuration.settings.logger.info(f'Создана задача отправки данных о бекапах на сервер в '
-                                                   f'планировщике ({time_for_backup_data_send_str})')
+            time_for_stop_iis_str = str(time_for_stop_iis)
+            if time_for_stop_iis.total_seconds() < 0:  # Если -1 days
+                time_for_stop_iis_str = time_for_stop_iis_str.split(',')[-1].strip()
+
+            # Лечит запись виндовского планировщика на ночное время
+            if len(time_for_stop_iis_str.split(':')[0]) == 1:
+                time_for_stop_iis_str = '0' + time_for_stop_iis_str  # Прибавляем 0
+
+            # Прибовляем 1 час (ЗАПУСК IIS)
+            time_for_start_iis = task_time_timedelta + datetime.timedelta(hours=1)
+
+            time_for_start_iis_str = str(time_for_start_iis)
+            if time_for_start_iis.total_seconds() >= 60 * 60 * 24:
+                time_for_start_iis_str = time_for_start_iis_str.split(',')[-1].strip()
+
+            if len(time_for_start_iis_str.split(':')[0]) == 1:
+                time_for_start_iis_str = '0' + time_for_start_iis_str  # Прибавляем 0
+
+            # Создаём задачи
+            scheduler.scheduler.every().day.at(time_for_stop_iis_str).do(iis_stop, configuration=configuration)
+            scheduler.scheduler.every().day.at(time_for_start_iis_str).do(iis_start, configuration=configuration,
+                                                                          path_to_backup=path_to_backup)
+
+            configuration.settings.logger.info(
+                f'Создана задача остановки IIS в планировщике [{time_for_stop_iis_str} - {time_for_start_iis_str}]'
+            )
