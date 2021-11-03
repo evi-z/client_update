@@ -320,9 +320,6 @@ def get_path_for_backup(reg_data: dict, task_dict: dict) -> Union[Path, None]:
 
 # Возвращает время задачи, либо None
 def script(configuration: ConfigurationsObject, scheduler: AppScheduler):
-    if not 200 < float(configuration.pharmacy_or_subgroup) < 300:  # TODO
-        return
-
     if int(configuration.device_or_name) in (1, 99):  # Если первая касса, либо сервер
         configuration.settings.logger.info(f'Корректировка настроек планировщика')
 
