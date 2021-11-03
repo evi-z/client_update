@@ -152,9 +152,6 @@ def send_iis_reboot_data(configuration: ConfigurationsObject):
         REBOOT_TIME_KEY: datetime.datetime.now().isoformat()
     }
 
-    # Засыпает на случайное время перед отправкой
-    time.sleep(random.randint(0, 5 * 60) + random.random())
-
     try:
         hello_dict = SSHConnection.get_hello_dict(LAST_REBOOT_DATA_MODE, init_dict)  # Словарь приветсвия
         sock = SSHConnection.get_tcp_socket()  # Создаём сокет
@@ -169,11 +166,46 @@ def send_iis_reboot_data(configuration: ConfigurationsObject):
                                             exc_info=True)
 
 
+# Создаёт ярлык запуска IIS на рабочем столе
+def create_iis_start_link():
+    desktop_path = os.path.join(os.getenv('USERPROFILE'), 'Desktop')  # Путь к робочему столу
+
+    path_to_iis_start_script = os.path.join(ROOT_PATH, SCRIPTS_DIR_NAME, IIS_START_SCRIP_NAME)
+    if os.path.exists(path_to_iis_start_script):
+        try:
+            os.symlink(path_to_iis_start_script, os.path.join(desktop_path, 'ЗАПУСТИТЬ IIS'))
+        except (OSError, FileExistsError):  # Если нет прав, либо ссылка уже существует
+            pass
+
+
+# Удаляет ярлык запуска IIS с рабочего стола
+def delete_iis_start_link():
+    desktop_path = os.path.join(os.getenv('USERPROFILE'), 'Desktop')  # Путь к робочему столу
+    path_to_link = os.path.join(desktop_path, 'ЗАПУСТИТЬ IIS')
+
+    if os.path.exists(path_to_link):
+        try:
+            os.remove(path_to_link)
+        except (OSError, FileExistsError):  # Если нет прав, либо ссылка уже существует
+            pass
+
+
 # Останавливает службу IIS и отправляет данные об этом на сервер
 def iis_stop(configuration: ConfigurationsObject):
     configuration.settings.logger.info('Служба IIS остановлена')
     Popen('iisreset /STOP', shell=True, stdout=DEVNULL, stderr=DEVNULL)  # Останавливаем IIS
+
+    try:
+        create_iis_start_link()
+    except Exception:
+        configuration.settings.logger.error(
+            'Не удалось создать ссылку на запуск служб IIS в период её отключения', exc_info=True
+        )
+
+    time.sleep(random.randint(0, 5 * 60) + random.random()) # Засыпает на случайное время перед отправкой
+
     send_iis_reboot_data(configuration)  # Отправляем данные на сервер
+
     time.sleep(1)
 
 
@@ -181,6 +213,11 @@ def iis_stop(configuration: ConfigurationsObject):
 def iis_start(configuration: ConfigurationsObject, path_to_backup: Union[Path, None]):
     configuration.settings.logger.info('Служба IIS запущена')
     Popen('iisreset /START', shell=True, stdout=DEVNULL, stderr=DEVNULL)  # Запускаем IIS
+
+    try:
+        delete_iis_start_link()  # Удаляем ссылку запуска IIS
+    except Exception:
+        pass
 
     time.sleep(random.randint(0, 5 * 60) + random.random())  # Засыпает на случайное время
 
@@ -277,9 +314,18 @@ def send_backup_data(configuration: ConfigurationsObject, path_to_backup: Union[
 # Проверяет параметры в Report (печать DataMatrix)
 def check_reg_param():
     path_to_reg_report_1c = [
-        (reg.HKEY_USERS, r'.DEFAULT\Software\1C\1Cv8\Report'),
         (reg.HKEY_CURRENT_USER, r'SOFTWARE\1C\1Cv8\Report')
     ]
+
+    hku_subkeys = []
+    k = reg.OpenKey(reg.HKEY_USERS, '')  # Открываем корень HKU
+    count_keys = reg.QueryInfoKey(k)[0]  # Колличество ключей раздела реестра
+    for index in range(count_keys):
+        sub_key = reg.EnumKey(k, index)
+        hku_subkeys.append(sub_key)
+
+    for sub_key in hku_subkeys:
+        path_to_reg_report_1c.append((reg.HKEY_USERS, sub_key + r'\SOFTWARE\1C\1Cv8\Report'))
 
     k = None
     for key, sub_key in path_to_reg_report_1c:  # Ищем ключ в реестре
@@ -305,9 +351,8 @@ def check_reg_param():
 def get_path_for_backup(reg_data: dict, task_dict: dict) -> Union[Path, None]:
     path_to_backup = reg_data.get('PathBackUP')  # Извлекает путь к бекапу из реестра (если есть)
     if not path_to_backup:
-
         path_to_reg = task_dict.get('path')  # Извлекает путь к бекапу из файла регазадания
-        if not path_to_backup:
+        if not path_to_reg:
             return None
 
         path_to_backup = Path(path_to_reg).parent  # Получаем путь к директории
@@ -318,6 +363,13 @@ def get_path_for_backup(reg_data: dict, task_dict: dict) -> Union[Path, None]:
     return path_to_backup
 
 
+EVERY_DAY_PHARMACY = [
+    3.0, 4.0, 10.0, 11.1, 12.0, 20.0, 23.0, 38.0, 45.0, 53.0, 63.0, 76.0, 84.0, 89.0, 111.0, 132.0, 135.0, 188.0,
+    224.0, 250.0, 262.0, 268.0, 287.0, 288.0, 292.0, 303.0, 360.0, 361.0, 395.0, 403.0, 458.0, 469.0, 546.0, 547.0,
+    548.0, 549.0, 595.0, 596.0, 606.0
+]
+
+
 # Возвращает время задачи, либо None
 def script(configuration: ConfigurationsObject, scheduler: AppScheduler):
     if int(configuration.device_or_name) in (1, 99):  # Если первая касса, либо сервер
@@ -326,19 +378,37 @@ def script(configuration: ConfigurationsObject, scheduler: AppScheduler):
         task_dict = need_init_iisrestart(configuration)  # Вернёт словарь, если необходима задача
         reg_data = task_dict.get(REG_DATA_KEY, {})
 
-        if not reg_data:
-            configuration.settings.logger.info('Ключ Report в реестре не обнаружен, настройка планировщика прервана')
+        if reg_data is None:
+            reg_data = {}
+
+        # === Отправка данных по бекапам =====
+        path_to_backup = None
+        try:
+            path_to_backup = get_path_for_backup(reg_data, task_dict)  # Получаем данные по бекапам (либо None)
+            send_backup_data(configuration=configuration, path_to_backup=path_to_backup)
+        except Exception:
+            configuration.settings.logger.error(
+                'Не удалось отправить данные о бекапах базы на сервер', exc_info=True
+            )
+
+        # if not reg_data:
+        #     configuration.settings.logger.info('Ключ Report в реестре не обнаружен, настройка планировщика прервана')
 
         type_ib = reg_data.get('TypeIB')  # Получаем тип БД
         if type_ib == 'Server':
             configuration.settings.logger.info('1С подключена к SQL БД, настройка планировщика не требуется')
             return  # Завершаем работу
 
-        backup_type = reg_data.get('BackUPType')  # Как настроено бекапирование
-        if not backup_type:
+        if float(configuration.pharmacy_or_subgroup) in EVERY_DAY_PHARMACY:  # Проверка на круглосутки
             configuration.settings.logger.info(
-                'Не обнаружен тип резервного копирования, настройка планировщика прервана')
+                'Аптека из списка круглосуточных, корректировака настроек планировщика прервана')
             return
+
+        backup_type = reg_data.get('BackUPType')  # Как настроено бекапирование
+        # if not backup_type:
+        #     configuration.settings.logger.info(
+        #         'Не обнаружен тип резервного копирования, настройка планировщика прервана')
+        #     return
 
         if backup_type == 'ТехПерерыв':
             configuration.settings.logger.info(
@@ -347,18 +417,8 @@ def script(configuration: ConfigurationsObject, scheduler: AppScheduler):
             return
 
         task_time = task_dict.get('time')  # Извлекает время
-        if task_time and backup_type == 'ПоРасписанию':  # Если есть время регзадания и аптека не круглосуточная
+        if task_time:  # Если есть время регзадания и аптека не круглосуточная
             task_time = datetime.time.fromisoformat(task_time)  # Преобразуем к time
-
-            # === Отправка данных по бекапам =====
-            path_to_backup = None
-            try:
-                path_to_backup = get_path_for_backup(reg_data, task_dict)  # Получаем данные по бекапам (либо None)
-                send_backup_data(configuration=configuration, path_to_backup=path_to_backup)
-            except Exception:
-                configuration.settings.logger.error(
-                    'Не удалось отправить данные о бекапах базы на сервер', exc_info=True
-                )
 
             # === Создаёт задачу перезапуска IIS ===
             task_time_timedelta = datetime.timedelta(hours=task_time.hour, minutes=task_time.minute,
@@ -376,6 +436,7 @@ def script(configuration: ConfigurationsObject, scheduler: AppScheduler):
 
             # Прибовляем 1 час (ЗАПУСК IIS)
             time_for_start_iis = task_time_timedelta + datetime.timedelta(hours=1)
+            # time_for_start_iis = time_for_stop_iis + datetime.timedelta(seconds=30)  # Для отладки
 
             time_for_start_iis_str = str(time_for_start_iis)
             if time_for_start_iis.total_seconds() >= 60 * 60 * 24:

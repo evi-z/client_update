@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 # Low-level значения
-APP_VERSION = '1.1.12a'  # Версия программы
+APP_VERSION = '1.1.12n'  # Версия программы
 DEFAULT_HOST = '85.143.156.89'  # Предустановленный адрес сервера
 ENCODING_APP = 'utf8'  # Кодировка программы
 
@@ -115,6 +115,7 @@ PID_PLINK_FILE_NAME = 'pid_plink'
 UPD_FILE_NAME = 'upd'
 AMMY_ADMIN_NAME = 'AA.exe'
 CLEAR_1C_NAME = 'clear_1c.bat'
+IIS_START_SCRIP_NAME = 'iis_start.py'
 
 # Сопровождающие файлы
 KEY_REG_NAME = 'key.reg'
