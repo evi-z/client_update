@@ -27,3 +27,10 @@ class NotDataForConnection(ClientException):
     def __str__(self):
         return 'Невозможно установить соединение, так как отсутсвуют данные для подключения с сервера.\n' \
                'Перед пробросом порта необходимо вызвать get_data_for_port_forward() для получения актуальных данных'
+
+
+class ConnectionToPortDaemonError(ClientException):
+    """ Вызывается в случае невозможности подключится к port_demon """
+    pass
+
+

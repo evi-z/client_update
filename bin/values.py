@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 # Low-level значения
-APP_VERSION = '1.1.12n'  # Версия программы
+APP_VERSION = '1.1.13'  # Версия программы
 DEFAULT_HOST = '85.143.156.89'  # Предустановленный адрес сервера
 ENCODING_APP = 'utf8'  # Кодировка программы
 
@@ -16,7 +16,8 @@ DONT_NEED_INIT_LOADER_ARG = '-wl'  # Не загружать loader
 REG_ROOT_PATH = r'Software\NevisVNClient'
 
 # Библиотеки программы
-APP_LIBRARY = ['asyncssh', 'PyQt5', 'psutil', 'py-cpuinfo', 'GitPython', 'pyshtrih', 'schedule', 'pypiwin32', 'pywin32']
+APP_LIBRARY = ['asyncssh', 'PyQt5', 'psutil', 'py-cpuinfo', 'GitPython', 'pyshtrih', 'schedule', 'pypiwin32', 'pywin32',
+               'requests']
 
 # Ключи реестра
 REG_VERSION_KEY = 'Version'
@@ -78,6 +79,9 @@ GROUP_KEY = 'group'
 PHARMACY_KEY = 'pharmacy'
 DEVICE_KEY = 'device'
 APP_VERSION_KEY = 'app_version'
+
+FIRST_IDENTIFIER = 'first_identifier'
+SECOND_IDENTIFIER = 'second_identifier'
 
 # Ключи словаря sql_demon
 PHARMACY_DICT_KEY = 'pharmacy_dict'
@@ -210,6 +214,6 @@ MINUTES_BEFORE_CHECK_APP_REBOOT = 10 * 60  # Количество минут м�
 MINUTES_BEFORE_CHECK_TVNS_SERVICE = 1 * 60  # Колличество минут между проверками работы службы TightVNC
 MINUTES_BEFORE_CHECK_LOADER = 30 * 60  # Колличество минут между проверками новых обновлений
 
-SECONDS_FROM_LAST_APP_REBOOT = 7 * 60 * 60  # Кол-во секунд, допустимое с последнего перезапуска программы
+SECONDS_FROM_LAST_APP_REBOOT = 6 * 60 * 60  # Кол-во секунд, допустимое с последнего перезапуска программы
 
 

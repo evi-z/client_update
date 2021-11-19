@@ -35,9 +35,11 @@ def send_configuration_data(config_dict):
     hello_dict = get_hello_dict(DISK_USAGE_MODE, config_dict)
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.connect((HOST, CONFIGURATION_DEMON_PORT))
-
-    sock.send(hello_dict.encode())
+    try:
+        sock.connect((HOST, CONFIGURATION_DEMON_PORT))
+        sock.send(hello_dict.encode())
+    except Exception:  # TODO
+        pass
 
     sock.close()
 

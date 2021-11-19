@@ -270,6 +270,16 @@ class ConfigurationsObject:
         if len(self.device_or_name) > 80:
             self.settings.print_incorrect_settings(f'Имя не должно превышать 80 символов ({DEVICE_OR_NAME_PHARM})')
 
+    # Возвращает словарь для инициализации клиента на сервере
+    def get_initialization_dict(self) -> dict:
+        initialization_dict = {
+            GROUP_KEY: self.group,
+            FIRST_IDENTIFIER: self.pharmacy_or_subgroup,
+            SECOND_IDENTIFIER: self.device_or_name
+        }
+
+        return initialization_dict
+
 
 # Объект загрузчика
 class Loader:
@@ -310,7 +320,7 @@ class Loader:
             self.first_init_repo = True  # Первое обновление
 
     # Проводит первичную настройку репозитория
-    def _init_update_repository(self, try_remove_flag=False) -> Repo:  # Флаг попытки удаления старого репозитория
+    def _init_update_repository(self, try_remove_flag=False):  # Флаг попытки удаления старого репозитория
         self.settings.logger.info('Первичная инициализаиця репозитория обновления')
         try:
             repo_init = Repo.clone_from(self.url_repository, UPDATE_GIT_PATH)  # Клонируем репозиторий
@@ -993,6 +1003,7 @@ class SSHConnection:
         self.tvnc.start_service()  # Запускаем службу Tight VNC
 
         self.loop = asyncio.new_event_loop()  # Создаём цикл
+        asyncio.set_event_loop(self.loop)
         # TODO Либо оставить get_event_loop, либо добавить set_event_loop
 
         try:

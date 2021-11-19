@@ -5,21 +5,23 @@ import random
 import subprocess
 import sys
 import time
+import traceback
+import types
 from subprocess import Popen, DEVNULL
 import winreg as reg
 
 from typing import Union
-
 import win32com.client
 
+import send_http
 from bin.values import *
 from objects import *
+from send_http import *
 
 # Ключи словаря конфигурации
 PHARMACY_DICT_KEY = 'pharmacy'
 DEVICE_DICT_KEY = 'device'
 TASK_DATA_KEY = 'task_data'
-REBOOT_TIME_KEY = 'reboot_time'
 BACKUP_DATA_KEY = 'backup_data'
 REG_DATA_KEY = 'reg_data'
 
@@ -34,25 +36,47 @@ CREATION_TIME = 'creation_time'
 FULL_BASE_BACKUP = 'full_base'
 ZIP_BASE_BACKUP = 'zip_base'
 
+# NEW
+MAIN_SCHEDULER = 'schedule'
 
-# Возвращает развёрнутый словарь задачи планировщика
-def get_task_shedule_dict() -> dict:
-    # Планировщик задач
+ACTION_SAVE_REG_TASK = 'reg_task'
+ACTION_SAVE_BACKUP_DATA_MODE = 'backup_data_mode'
+ACTION_STOP_IIS = 'iis_stop'
+
+# TODO DEBUG
+# DEBUG = True
+# TEST_TIME = '12:00:50'
+
+
+# Возвращает случайное время регзадание
+def get_random_regtask_datetime():
+    now = datetime.datetime.now()
+    st_hour = random.choice([23, 0, 0])  # 1/3 Стартовый час
+
+    # Стартовое время
+    countdown_time = datetime.datetime(year=now.year, day=now.day, month=now.month, hour=st_hour, minute=0, second=0)
+
+    range_minuts = 60 if st_hour == 23 else 120  # Прибавляемые минуты
+    trigger_time = countdown_time + datetime.timedelta(minutes=random.randrange(0, range_minuts),
+                                                       seconds=random.randrange(0, 60))  # Прибавляем случайное время
+
+    return trigger_time
+
+
+# Ищет необходимую задачу в Планировщике событий
+def find_schedule_regtask():
     scheduler = win32com.client.Dispatch('Schedule.Service')  # Подключаемся к службе планировщика
     scheduler.Connect()
 
     TASK_ACTION_EXEC = 0  # Признак типа задачи "Запуск программы"
-    TASK_TRIGGER_DAILY = 2  # Тип триггера "Запускать задачу в определённое время"
 
-    n = 0
-    folders = [scheduler.GetFolder('\\')]  # Получаем все папки
+    folders = [scheduler.GetFolder('\\')]  # Папки (задачи)
     needed_task = None  # Тут будет необходимая задача (если будет)
-    path_to_exec = None  # Путь к батнику (если есть)
+
     while folders:  # Проходим по всем папкам в корне
         cur_folder = folders.pop(0)  # Удаляем папку из списка и работаем с ней
-        folders += list(cur_folder.GetFolders(0))  # ?
+        folders += list(cur_folder.GetFolders(0))  # Подпапки (?)
         tasks = list(cur_folder.GetTasks(1))  # Получаем задачи
-        n += len(tasks)
 
         for task in tasks:  # Проходим по зпдачам
             actions = task.Definition.Actions  # Действия задачи
@@ -62,10 +86,12 @@ def get_task_shedule_dict() -> dict:
 
                 if cur_action.Type == TASK_ACTION_EXEC:  # Если действие - запуск исполняемого файла
                     path_to_exec = cur_action.Path  # Путь к исполняемому файлу
-                    path_to_exec = path_to_exec.strip('"')  # Убираем кавычки
+                    path_to_exec = path_to_exec.strip('"')  # Убираем кавчки
+
                     if path_to_exec.endswith('reg.bat'):
                         needed_task = task  # Пишем задачу
                         break
+
                 else:  # Если нет - ищем дальше
                     continue
 
@@ -74,96 +100,117 @@ def get_task_shedule_dict() -> dict:
 
         if needed_task:
             break
+    else:
+        return None
 
-    if needed_task:  # Если задача найдена
-        triggers = needed_task.Definition.Triggers  # Триггеры задачи
-        if triggers.Count > 1:  # Если болье одного триггера
-            return {
-                'flag': UNCORRECT_FLAG,
-                'description': f'Установленно более одного триггера на задание ({triggers.Count})'
-            }
+    return needed_task
 
-        cur_trigger = triggers.Item(1)  # Конкретный триггер
-        trigger_datetime = None
-        if cur_trigger.Type == TASK_TRIGGER_DAILY:  # Если корректный тригер (Ежедневное выполнение)
-            trigger_datetime = cur_trigger.StartBoundary  # Время выполнения задачи
-            dat = datetime.datetime.fromisoformat(trigger_datetime)  # Преобразуем к datetime
 
-            return {
-                'flag': CORRECT_FLAG,
-                'state': needed_task.State,
-                'time': dat.time().isoformat(),
-                'path': path_to_exec
-            }
+# Инициализирует настройку регзадания в планировщике
+def init_reg_task() -> dict:
+    old_task = find_schedule_regtask()  # Получаем старую задачу
 
-        else:  # Некорректный триггер задачи
-            return {
-                'flag': UNCORRECT_FLAG,
-                'description': f'Некорректный триггер задачи ({cur_trigger.Type})'
-            }
-    else:  # Если не найдена
+    # Автор - флаг, создавалась ли уже задача RM
+    AUTO_REMOTE_AUTHOR = 'AUTO_REMOTE'
+
+    # if not DEBUG:  # TODO
+    if not old_task:  # Если задача не найдена
         return {
             'flag': NOT_FOUND_FLAG
         }
 
+    author = old_task.Definition.RegistrationInfo.Author  # Получаем автора задачи
+    if author == AUTO_REMOTE_AUTHOR:  # Если уже создавали - ничего не делать
+        # Актуализация данных
+        time_task = old_task.Definition.Triggers.Item(1).StartBoundary
+        time_task = datetime.datetime.fromisoformat(time_task).time().isoformat()  # Преобразуем к time
+        path_to_reg_bat = old_task.Definition.Actions.Item(1).Path
 
-# Возвращает, необходимо ли инициализировать задачу по перезапуску IIS (также отправляет данные на сервер)ы
-def need_init_iisrestart(configuration: ConfigurationsObject):
-    REG_TASK_MODE = 'reg_task'  # Режим работы проверки регзадания
+        return {
+            'flag': CORRECT_FLAG,
+            'time': time_task,
+            'path': path_to_reg_bat
+        }
 
-    task_dict = get_task_shedule_dict()  # Получаем данные по задаче
+    scheduler = win32com.client.Dispatch('Schedule.Service')
+    scheduler.Connect()
+    root_folder = scheduler.GetFolder('\\')  # Корневая директория
+    task_def = scheduler.NewTask(0)  # Создаём новую задачу
+
+    # Триггер задачи
+    trigger_time = get_random_regtask_datetime()  # Случайное время регзадания
+    TASK_TRIGGER_DAILY = 2  # Запуск каждый день
+    trigger = task_def.Triggers.Create(TASK_TRIGGER_DAILY)  # Создаём задачу
+
+    # if TEST_TIME:  # TODO
+    #     ti = [int(el) for el in TEST_TIME.split(':')]
+    #     now = datetime.datetime.now()
+    #     trigger_time = datetime.datetime(year=now.year, month=now.month, day=now.day,
+    #                                      hour=ti[0], minute=ti[1], second=ti[2])
+
+    trigger.StartBoundary = trigger_time.isoformat()  # Время запуска
+
+    task_def.Actions = old_task.Definition.Actions  # Присваеваем новой задачи старое действие
+
+    # Параметры задачи
+    task_def.RegistrationInfo.Description = 'Обновление 1С, создание бекапов базы'
+    task_def.RegistrationInfo.Author = AUTO_REMOTE_AUTHOR
+    task_def.Settings.Enabled = True
+
+    # Регистрируем задачу
+    TASK_NAME = 'Регзадание 1С'
+    TASK_CREATE_OR_UPDATE = 6  # Создать, либо обновить
+    TASK_LOGON_NONE = 0
+    root_folder.RegisterTaskDefinition(
+        TASK_NAME,
+        task_def,
+        TASK_CREATE_OR_UPDATE,
+        '',  # Без пользователя
+        '',  # Без пароля
+        TASK_LOGON_NONE)
+
+    # if not DEBUG:  # TODO
+    try:
+        root_folder.DeleteTask(old_task.Name, 0)  # Удаляем предыдущую задачу [АДМИНИСТРАТОР]
+    except Exception:  # Если не удалось удалить старую задачу
+        pass
+
+    path_to_reg_bat = task_def.Actions.Item(1).Path  # Путь к батнику
+    return {
+        'flag': CORRECT_FLAG,
+        'time': trigger_time.time().isoformat(),
+        'path': path_to_reg_bat
+    }
+
+
+# Инициализирует работу скрипта
+def init_scheduler(configuration: ConfigurationsObject) -> Union[dict, None]:
+    task_dict = init_reg_task()  # Инициализируем регзадание
+
     reg_dict = check_reg_param()  # Получаем параметры из реестра (если есть)
+    task_dict[REG_DATA_KEY] = reg_dict  # Пишем данные из реестра
+    send_http.send_data(
+        method=METHOD_SAVE,
+        identifier=configuration.get_initialization_dict(),
+        main=MAIN_SCHEDULER,
+        action=ACTION_SAVE_REG_TASK,
+        data=task_dict,
+        logger=configuration.settings.logger
+    )  # Отправляем данные на сервер
 
-    task_dict[REG_DATA_KEY] = reg_dict
-
-    # Словарь для отправки
-    send_dict = {
-        PHARMACY_DICT_KEY: configuration.pharmacy_or_subgroup,
-        DEVICE_DICT_KEY: configuration.device_or_name,
-        TASK_DATA_KEY: task_dict,
-    }
-
-    try:
-        hello_dict = SSHConnection.get_hello_dict(REG_TASK_MODE, send_dict)  # Словарь приветсвия
-        sock = SSHConnection.get_tcp_socket()  # Создаём сокет
-
-        sock.connect((configuration.host, SCHEDULER_DEMON_PORT))  # Устанавливаем соединение
-        sock.send(hello_dict.encode())  # Отправляем данные
-        sock.close()  # Закрываем сокет
-
-    except Exception:
-        configuration.settings.logger.error('Не удалось отправить на сервер данные по регзаданию планировщика',
-                                            exc_info=True)
-
-    flag = task_dict.get('flag')  # Извлекаем флаг таска
-    if flag == CORRECT_FLAG:  # Если корректно
-        return task_dict  # Возвращаем время таска
-    else:
-        return None
+    return task_dict if task_dict.get('flag') == CORRECT_FLAG else None
 
 
-# Отправляем данные о последнем ребуте IIS
-def send_iis_reboot_data(configuration: ConfigurationsObject):
-    LAST_REBOOT_DATA_MODE = 'last_reboot'
-
-    init_dict = {
-        PHARMACY_DICT_KEY: configuration.pharmacy_or_subgroup,
-        DEVICE_DICT_KEY: configuration.device_or_name,
-        REBOOT_TIME_KEY: datetime.datetime.now().isoformat()
-    }
-
-    try:
-        hello_dict = SSHConnection.get_hello_dict(LAST_REBOOT_DATA_MODE, init_dict)  # Словарь приветсвия
-        sock = SSHConnection.get_tcp_socket()  # Создаём сокет
-
-        sock.connect((configuration.host, SCHEDULER_DEMON_PORT))  # Устанавливаем соединение
-        sock.send(hello_dict.encode())  # Отправляем данные
-        sock.close()  # Закрываем сокет
-
-        configuration.settings.logger.info('Данные по ребуту IIS отправленны на сервер')
-    except Exception:
-        configuration.settings.logger.error('Не удалось отправить на сервер время последнего перезапуска IIS',
-                                            exc_info=True)
+# Отправляем данные об остановке IIS
+def send_iis_stop_data(configuration: ConfigurationsObject):
+    send_data(
+        method=METHOD_SAVE,
+        identifier=configuration.get_initialization_dict(),
+        main=MAIN_SCHEDULER,
+        action=ACTION_STOP_IIS,
+        data=datetime.datetime.now().isoformat(),
+        logger=configuration.settings.logger
+    )
 
 
 # Создаёт ярлык запуска IIS на рабочем столе
@@ -196,17 +243,13 @@ def iis_stop(configuration: ConfigurationsObject):
     Popen('iisreset /STOP', shell=True, stdout=DEVNULL, stderr=DEVNULL)  # Останавливаем IIS
 
     try:
-        create_iis_start_link()
+        create_iis_start_link()  # Создаём линк запуска IIS
     except Exception:
         configuration.settings.logger.error(
             'Не удалось создать ссылку на запуск служб IIS в период её отключения', exc_info=True
         )
 
-    time.sleep(random.randint(0, 5 * 60) + random.random()) # Засыпает на случайное время перед отправкой
-
-    send_iis_reboot_data(configuration)  # Отправляем данные на сервер
-
-    time.sleep(1)
+    send_iis_stop_data(configuration)  # Отправляем данные на сервер
 
 
 # Запускает службу IIS
@@ -219,14 +262,7 @@ def iis_start(configuration: ConfigurationsObject, path_to_backup: Union[Path, N
     except Exception:
         pass
 
-    time.sleep(random.randint(0, 5 * 60) + random.random())  # Засыпает на случайное время
-
-    try:
-        send_backup_data(configuration, path_to_backup)  # Отправляем данные по бекапам
-    except Exception:
-        configuration.settings.logger.info(
-            'Не удалось отправить данные по бекапам на сервер', exc_info=True
-        )
+    send_backup_data(configuration, path_to_backup)  # Отправляем данные по бекапам
 
 
 # Получает данные о последнем бекапе
@@ -288,27 +324,15 @@ def send_backup_data(configuration: ConfigurationsObject, path_to_backup: Union[
     if path_to_backup is None:  # Если пути нет - ничего не делаем
         return
 
-    BACKUP_DATA_MODE = 'backup_data_mode'
-
     backup_data = get_base_backup_data(path_to_backup)  # Получаем данные по бекапам
-    init_dict = {
-        PHARMACY_DICT_KEY: configuration.pharmacy_or_subgroup,
-        DEVICE_DICT_KEY: configuration.device_or_name,
-        BACKUP_DATA_KEY: backup_data
-    }
-
-    try:
-        hello_dict = SSHConnection.get_hello_dict(BACKUP_DATA_MODE, init_dict)  # Словарь приветсвия
-        sock = SSHConnection.get_tcp_socket()  # Создаём сокет
-
-        sock.connect((configuration.host, SCHEDULER_DEMON_PORT))  # Устанавливаем соединение
-        sock.send(hello_dict.encode())  # Отправляем данные
-        sock.close()  # Закрываем сокет
-
-        configuration.settings.logger.info('Данные по бекапам базы отправленны на сервер')
-    except Exception:
-        configuration.settings.logger.error('Не удалось отправить на сервер данные по бекапам базы',
-                                            exc_info=True)
+    send_http.send_data(
+        method=METHOD_SAVE,
+        identifier=configuration.get_initialization_dict(),
+        main=MAIN_SCHEDULER,
+        action=ACTION_SAVE_BACKUP_DATA_MODE,
+        data=backup_data,
+        logger=configuration.settings.logger
+    )  # Отправляем данные на сервер
 
 
 # Проверяет параметры в Report (печать DataMatrix)
@@ -363,6 +387,43 @@ def get_path_for_backup(reg_data: dict, task_dict: dict) -> Union[Path, None]:
     return path_to_backup
 
 
+# Прибовляет / вычитает время и возвращает валидным
+def add_or_sub_time_for_win_scheduler(*, start_time: datetime.time, sign: str,
+                                      hour: int = 0, minute: int = 0, second: int = 0) -> str:
+    start_time_timedelta = datetime.timedelta(
+        hours=start_time.hour, minutes=start_time.minute, seconds=start_time.second
+    )  # Приводим к timedelta
+
+    time_diff = datetime.timedelta(hours=hour, minutes=minute, seconds=second)  # Прибовляемое / вычитаемое время
+
+    if sign == '+':
+        new_time = start_time_timedelta + time_diff
+
+    elif sign == '-':
+        new_time = start_time_timedelta - time_diff
+
+    else:  # Не должно быть
+        return '00:00:00'
+
+    new_time_str = str(new_time)
+
+    # Лечим -1 +1 days
+    if not 0 < new_time.total_seconds() <= 60 * 60 * 24:
+        new_time_str = new_time_str.split(',')[-1].strip()
+
+    # Лечит запись виндовского планировщика на ночное время
+    if len(new_time_str.split(':')[0]) == 1:
+        new_time_str = '0' + new_time_str  # Прибавляем 0
+
+    return new_time_str
+
+
+# Запускает батник регзадания
+def run_reg_bat(path_to_reg_bat: str):
+    Popen(f'"{path_to_reg_bat}"', shell=True)  # Запускаем батник
+    time.sleep(0.5)
+
+
 EVERY_DAY_PHARMACY = [
     3.0, 4.0, 10.0, 11.1, 12.0, 20.0, 23.0, 38.0, 45.0, 53.0, 63.0, 76.0, 84.0, 89.0, 111.0, 132.0, 135.0, 188.0,
     224.0, 250.0, 262.0, 268.0, 287.0, 288.0, 292.0, 303.0, 360.0, 361.0, 395.0, 403.0, 458.0, 469.0, 546.0, 547.0,
@@ -375,11 +436,12 @@ def script(configuration: ConfigurationsObject, scheduler: AppScheduler):
     if int(configuration.device_or_name) in (1, 99):  # Если первая касса, либо сервер
         configuration.settings.logger.info(f'Корректировка настроек планировщика')
 
-        task_dict = need_init_iisrestart(configuration)  # Вернёт словарь, если необходима задача
-        reg_data = task_dict.get(REG_DATA_KEY, {})
+        task_dict = init_scheduler(configuration)
+        if task_dict is None:
+            configuration.settings.logger.info('Регзадание не обнаружено, корректировка настроек не требуется')
+            return
 
-        if reg_data is None:
-            reg_data = {}
+        reg_data = task_dict.get(REG_DATA_KEY, {})  # Данные реестра
 
         # === Отправка данных по бекапам =====
         path_to_backup = None
@@ -390,9 +452,6 @@ def script(configuration: ConfigurationsObject, scheduler: AppScheduler):
             configuration.settings.logger.error(
                 'Не удалось отправить данные о бекапах базы на сервер', exc_info=True
             )
-
-        # if not reg_data:
-        #     configuration.settings.logger.info('Ключ Report в реестре не обнаружен, настройка планировщика прервана')
 
         type_ib = reg_data.get('TypeIB')  # Получаем тип БД
         if type_ib == 'Server':
@@ -405,11 +464,6 @@ def script(configuration: ConfigurationsObject, scheduler: AppScheduler):
             return
 
         backup_type = reg_data.get('BackUPType')  # Как настроено бекапирование
-        # if not backup_type:
-        #     configuration.settings.logger.info(
-        #         'Не обнаружен тип резервного копирования, настройка планировщика прервана')
-        #     return
-
         if backup_type == 'ТехПерерыв':
             configuration.settings.logger.info(
                 'Настройки резервного копирования соответсвуют круглосуточной аптеки, настройка планировщика завершена'
@@ -420,36 +474,28 @@ def script(configuration: ConfigurationsObject, scheduler: AppScheduler):
         if task_time:  # Если есть время регзадания и аптека не круглосуточная
             task_time = datetime.time.fromisoformat(task_time)  # Преобразуем к time
 
-            # === Создаёт задачу перезапуска IIS ===
-            task_time_timedelta = datetime.timedelta(hours=task_time.hour, minutes=task_time.minute,
-                                                     seconds=task_time.second)
+            # === Создаём задачу перезапуска IIS ===
             # Вычитаем из времени 10 минут (ОСТАНОВКА IIS)
-            time_for_stop_iis = task_time_timedelta - datetime.timedelta(minutes=10)
-
-            time_for_stop_iis_str = str(time_for_stop_iis)
-            if time_for_stop_iis.total_seconds() < 0:  # Если -1 days
-                time_for_stop_iis_str = time_for_stop_iis_str.split(',')[-1].strip()
-
-            # Лечит запись виндовского планировщика на ночное время
-            if len(time_for_stop_iis_str.split(':')[0]) == 1:
-                time_for_stop_iis_str = '0' + time_for_stop_iis_str  # Прибавляем 0
+            time_for_stop_iis = add_or_sub_time_for_win_scheduler(
+                start_time=task_time, sign='-', minute=10
+            )
 
             # Прибовляем 1 час (ЗАПУСК IIS)
-            time_for_start_iis = task_time_timedelta + datetime.timedelta(hours=1)
-            # time_for_start_iis = time_for_stop_iis + datetime.timedelta(seconds=30)  # Для отладки
+            time_for_start_iis = add_or_sub_time_for_win_scheduler(
+                start_time=task_time, sign='+', hour=1
+            )
 
-            time_for_start_iis_str = str(time_for_start_iis)
-            if time_for_start_iis.total_seconds() >= 60 * 60 * 24:
-                time_for_start_iis_str = time_for_start_iis_str.split(',')[-1].strip()
+            time_for_run_bat = add_or_sub_time_for_win_scheduler(
+                start_time=task_time, sign='+', hour=1, minute=5
+            )
 
-            if len(time_for_start_iis_str.split(':')[0]) == 1:
-                time_for_start_iis_str = '0' + time_for_start_iis_str  # Прибавляем 0
-
+            path_to_reg_bat = task_dict.get('path')  # Путь к bat-файлу регзадания
             # Создаём задачи
-            scheduler.scheduler.every().day.at(time_for_stop_iis_str).do(iis_stop, configuration=configuration)
-            scheduler.scheduler.every().day.at(time_for_start_iis_str).do(iis_start, configuration=configuration,
-                                                                          path_to_backup=path_to_backup)
+            scheduler.scheduler.every().day.at(time_for_stop_iis).do(iis_stop, configuration=configuration)
+            scheduler.scheduler.every().day.at(time_for_start_iis).do(iis_start, configuration=configuration,
+                                                                      path_to_backup=path_to_backup)
+            scheduler.scheduler.every().day.at(time_for_run_bat).do(run_reg_bat, path_to_reg_bat=path_to_reg_bat)
 
             configuration.settings.logger.info(
-                f'Создана задача остановки IIS в планировщике [{time_for_stop_iis_str} - {time_for_start_iis_str}]'
+                f'Создана задача остановки IIS в планировщике [{time_for_stop_iis} - {time_for_start_iis}]'
             )
