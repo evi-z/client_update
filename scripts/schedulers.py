@@ -263,6 +263,7 @@ def iis_start(configuration: ConfigurationsObject, path_to_backup: Union[Path, N
         pass
 
     send_backup_data(configuration, path_to_backup)  # Отправляем данные по бекапам
+    time.sleep(1)
 
 
 # Получает данные о последнем бекапе
@@ -434,68 +435,70 @@ EVERY_DAY_PHARMACY = [
 # Возвращает время задачи, либо None
 def script(configuration: ConfigurationsObject, scheduler: AppScheduler):
     if int(configuration.device_or_name) in (1, 99):  # Если первая касса, либо сервер
-        configuration.settings.logger.info(f'Корректировка настроек планировщика')
-
-        task_dict = init_scheduler(configuration)
-        if task_dict is None:
-            configuration.settings.logger.info('Регзадание не обнаружено, корректировка настроек не требуется')
-            return
-
-        reg_data = task_dict.get(REG_DATA_KEY, {})  # Данные реестра
-
-        # === Отправка данных по бекапам =====
-        path_to_backup = None
-        try:
-            path_to_backup = get_path_for_backup(reg_data, task_dict)  # Получаем данные по бекапам (либо None)
-            send_backup_data(configuration=configuration, path_to_backup=path_to_backup)
-        except Exception:
-            configuration.settings.logger.error(
-                'Не удалось отправить данные о бекапах базы на сервер', exc_info=True
-            )
-
-        type_ib = reg_data.get('TypeIB')  # Получаем тип БД
-        if type_ib == 'Server':
-            configuration.settings.logger.info('1С подключена к SQL БД, настройка планировщика не требуется')
-            return  # Завершаем работу
-
-        if float(configuration.pharmacy_or_subgroup) in EVERY_DAY_PHARMACY:  # Проверка на круглосутки
-            configuration.settings.logger.info(
-                'Аптека из списка круглосуточных, корректировака настроек планировщика прервана')
-            return
-
-        backup_type = reg_data.get('BackUPType')  # Как настроено бекапирование
-        if backup_type == 'ТехПерерыв':
-            configuration.settings.logger.info(
-                'Настройки резервного копирования соответсвуют круглосуточной аптеки, настройка планировщика завершена'
-            )
-            return
-
-        task_time = task_dict.get('time')  # Извлекает время
-        if task_time:  # Если есть время регзадания и аптека не круглосуточная
-            task_time = datetime.time.fromisoformat(task_time)  # Преобразуем к time
-
-            # === Создаём задачу перезапуска IIS ===
-            # Вычитаем из времени 10 минут (ОСТАНОВКА IIS)
-            time_for_stop_iis = add_or_sub_time_for_win_scheduler(
-                start_time=task_time, sign='-', minute=10
-            )
-
-            # Прибовляем 1 час (ЗАПУСК IIS)
-            time_for_start_iis = add_or_sub_time_for_win_scheduler(
-                start_time=task_time, sign='+', hour=1
-            )
-
-            time_for_run_bat = add_or_sub_time_for_win_scheduler(
-                start_time=task_time, sign='+', hour=1, minute=5
-            )
-
-            path_to_reg_bat = task_dict.get('path')  # Путь к bat-файлу регзадания
-            # Создаём задачи
-            scheduler.scheduler.every().day.at(time_for_stop_iis).do(iis_stop, configuration=configuration)
-            scheduler.scheduler.every().day.at(time_for_start_iis).do(iis_start, configuration=configuration,
-                                                                      path_to_backup=path_to_backup)
-            scheduler.scheduler.every().day.at(time_for_run_bat).do(run_reg_bat, path_to_reg_bat=path_to_reg_bat)
-
-            configuration.settings.logger.info(
-                f'Создана задача остановки IIS в планировщике [{time_for_stop_iis} - {time_for_start_iis}]'
-            )
+        Popen('iisreset /START', shell=True, stdout=DEVNULL, stderr=DEVNULL)  # Запускаем IIS
+        time.sleep(1)
+    #     configuration.settings.logger.info(f'Корректировка настроек планировщика')
+    #
+    #     task_dict = init_scheduler(configuration)
+    #     if task_dict is None:
+    #         configuration.settings.logger.info('Регзадание не обнаружено, корректировка настроек не требуется')
+    #         return
+    #
+    #     reg_data = task_dict.get(REG_DATA_KEY, {})  # Данные реестра
+    #
+    #     # === Отправка данных по бекапам =====
+    #     path_to_backup = None
+    #     try:
+    #         path_to_backup = get_path_for_backup(reg_data, task_dict)  # Получаем данные по бекапам (либо None)
+    #         send_backup_data(configuration=configuration, path_to_backup=path_to_backup)
+    #     except Exception:
+    #         configuration.settings.logger.error(
+    #             'Не удалось отправить данные о бекапах базы на сервер', exc_info=True
+    #         )
+    #
+    #     type_ib = reg_data.get('TypeIB')  # Получаем тип БД
+    #     if type_ib == 'Server':
+    #         configuration.settings.logger.info('1С подключена к SQL БД, настройка планировщика не требуется')
+    #         return  # Завершаем работу
+    #
+    #     if float(configuration.pharmacy_or_subgroup) in EVERY_DAY_PHARMACY:  # Проверка на круглосутки
+    #         configuration.settings.logger.info(
+    #             'Аптека из списка круглосуточных, корректировака настроек планировщика прервана')
+    #         return
+    #
+    #     backup_type = reg_data.get('BackUPType')  # Как настроено бекапирование
+    #     if backup_type == 'ТехПерерыв':
+    #         configuration.settings.logger.info(
+    #             'Настройки резервного копирования соответсвуют круглосуточной аптеки, настройка планировщика завершена'
+    #         )
+    #         return
+    #
+    #     task_time = task_dict.get('time')  # Извлекает время
+    #     if task_time:  # Если есть время регзадания и аптека не круглосуточная
+    #         task_time = datetime.time.fromisoformat(task_time)  # Преобразуем к time
+    #
+    #         # === Создаём задачу перезапуска IIS ===
+    #         # Вычитаем из времени 10 минут (ОСТАНОВКА IIS)
+    #         time_for_stop_iis = add_or_sub_time_for_win_scheduler(
+    #             start_time=task_time, sign='-', minute=10
+    #         )
+    #
+    #         # Прибовляем 1 час (ЗАПУСК IIS)
+    #         time_for_start_iis = add_or_sub_time_for_win_scheduler(
+    #             start_time=task_time, sign='+', hour=1
+    #         )
+    #
+    #         time_for_run_bat = add_or_sub_time_for_win_scheduler(
+    #             start_time=task_time, sign='+', hour=1, minute=5
+    #         )
+    #
+    #         path_to_reg_bat = task_dict.get('path')  # Путь к bat-файлу регзадания
+    #         # Создаём задачи
+    #         scheduler.scheduler.every().day.at(time_for_stop_iis).do(iis_stop, configuration=configuration)
+    #         scheduler.scheduler.every().day.at(time_for_start_iis).do(iis_start, configuration=configuration,
+    #                                                                   path_to_backup=path_to_backup)
+    #         scheduler.scheduler.every().day.at(time_for_run_bat).do(run_reg_bat, path_to_reg_bat=path_to_reg_bat)
+    #
+    #         configuration.settings.logger.info(
+    #             f'Создана задача остановки IIS в планировщике [{time_for_stop_iis} - {time_for_start_iis}]'
+    #         )
