@@ -32,4 +32,3 @@ rd /s /q "%temp%" >nul 2>&1
 
 Del C:\retail\*.cdn
 
-iisreset /RESTART
