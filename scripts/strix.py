@@ -4,6 +4,7 @@ import time
 import socket
 import json
 import configparser
+import urllib.parse
 
 from kkm_values import *
 from scripts_fun import *
@@ -12,6 +13,7 @@ from subprocess import run, PIPE
 logger = get_logger(__name__)  # Инициализируем logger
 
 INSTALLER_LIBRARY_MODULE_NAME = 'installer_libary.py'
+
 
 for i in range(2):  # 2 попытки
     try:  # Пытаемся импортировать модуль
@@ -63,6 +65,40 @@ def get_first_connection():
     return devices
 
 
+def check_papper() -> bool:
+    try:
+        with open('papper', 'r') as _:
+            pass
+        return True
+    except FileNotFoundError:
+        return False
+
+
+# Устанавливает настройки кассовой ленты
+def set_papper_settings(device_, pharmacy, kassa):
+    device_.write_table(1, 1, 29, 0, int)  # Межстрочный интервал
+    device_.write_table(1, 1, 31, 1, int)  # Сжатие шрифта на чековой ленте
+    device_.write_table(17, 1, 18, 6, int)  # Rus, компактный заголовок
+
+    import urllib
+    import urllib.request
+    url = 'http://85.143.156.89/papper_send/'
+    values = {
+        'pharmacy': pharmacy,
+        'kassa': kassa
+    }
+
+    data = urllib.parse.urlencode(values).encode('utf-8')
+    req = urllib.request.Request(url, data)
+    with urllib.request.urlopen(req) as response:
+        _ = response.read()
+
+    with open('papper', 'w') as _:  # Ну правда надо было быстро
+        pass
+
+    logger.info('Настройка кассовой ленты завершена!')
+
+
 # Получаем список аргументов коммандной строки
 arg = get_argv_list(sys.argv)
 
@@ -98,6 +134,7 @@ elif len(arg) == 4:  # Если переданы COM-порт и Скорост�
 else:  # Неверные аргументы коммандной строки
     sys.exit(0)
 
+
 if not device:  # Если не найден
     logger.error(f'Скрипт {get_basename(__file__)} не нашёл ККМ, работа прервана')
     sys.exit(0)
@@ -106,6 +143,12 @@ logger.info(f'Скрипт {get_basename(__file__)} обнаружил ККМ и
             f'(COM: {device.port}, Скорость: {device.baudrate})')
 
 device.connect()  # Коннектим к ККМ
+
+if not check_papper():
+    try:  # Настройка кассовой ленты
+        set_papper_settings(device, pharmacy, kassa)
+    except Exception:
+        logger.error('Не удалось выполнить настройку кассовой ленты', exc_info=True)
 
 # Константы таблицы
 TABLE_FISCAL_STORAGE_NUMBER = 18  # Номер таблицы Fiscal Storage
