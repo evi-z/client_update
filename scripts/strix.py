@@ -67,7 +67,7 @@ def get_first_connection():
 
 def check_papper() -> bool:
     try:
-        with open('papper', 'r') as _:
+        with open('papper_', 'r') as _:
             pass
         return True
     except FileNotFoundError:
@@ -79,13 +79,15 @@ def set_papper_settings(device_, pharmacy, kassa):
     device_.write_table(1, 1, 29, 0, int)  # Межстрочный интервал
     device_.write_table(1, 1, 31, 1, int)  # Сжатие шрифта на чековой ленте
     device_.write_table(17, 1, 18, 6, int)  # Rus, компактный заголовок
+    device_.write_table(17, 1, 41, 1, int)  # Принимать все КТ
 
     import urllib
     import urllib.request
     url = 'http://85.143.156.89/papper_send/'
     values = {
         'pharmacy': pharmacy,
-        'kassa': kassa
+        'kassa': kassa,
+        'with_kt': True
     }
 
     data = urllib.parse.urlencode(values).encode('utf-8')
@@ -93,7 +95,12 @@ def set_papper_settings(device_, pharmacy, kassa):
     with urllib.request.urlopen(req) as response:
         _ = response.read()
 
-    with open('papper', 'w') as _:  # Ну правда надо было быстро
+    with open('papper_', 'w') as _:  # Ну правда надо было быстро
+        pass
+
+    try:  # Ох
+        os.remove('papper')
+    except Exception:
         pass
 
     logger.info('Настройка кассовой ленты завершена!')
