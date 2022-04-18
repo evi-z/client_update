@@ -33,7 +33,10 @@ def script(configuration: ConfigurationsObject):
             pass
 
     # Сторонний софт для заказа ###
-    if not configuration.device_or_name == 0:
+    try:
+        if int(configuration.device_or_name) != 0:
+            return
+    except Exception:
         return
 
     if os.path.exists('_order_programs'):
