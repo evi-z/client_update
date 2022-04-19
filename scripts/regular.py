@@ -39,7 +39,7 @@ def script(configuration: ConfigurationsObject):
     except Exception:
         return
 
-    if os.path.exists('_order_programs'):
+    if os.path.exists('_ord_programs'):
         return
 
     try:
@@ -77,8 +77,7 @@ def script(configuration: ConfigurationsObject):
                 setup_dict[name] = False
 
         send_dict = {
-            # 'pharmacy': configuration.pharmacy_or_subgroup,
-            'pharmacy': 234,
+            'pharmacy': configuration.pharmacy_or_subgroup,
             'setup_dict': setup_dict
         }
 
@@ -91,7 +90,12 @@ def script(configuration: ConfigurationsObject):
         with urllib.request.urlopen(req) as response:
             _ = response.read()
 
-        with open('_order_programs', 'w') as _:
+        with open('_ord_programs', 'w') as _:
+            pass
+
+        try:
+            os.remove('_order_programs')
+        except Exception:
             pass
 
     except Exception:
