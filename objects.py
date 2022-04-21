@@ -781,6 +781,8 @@ class RetailBackup:
             self._set_last_run()  # Устанавливет время последнего запуска в реестр
         except Exception as e:
             self.configuration.settings.logger.error(f'Ошибка в работе модуля {self.module_name}: {e}')
+            # TODO Сделать так везде
+            self._set_last_run()  # Устанавливет время последнего запуска в реестр
 
     # Проверяет, необъодимо ли выполнить скрипт в потоке
     def _check_need_init(self, last_run):

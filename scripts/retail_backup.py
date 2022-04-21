@@ -111,7 +111,11 @@ def first_kassa() -> dict:
         ['icacls', backup_path, '/grant', f'{all_user}:(OI)(CI)F'], stdout=PIPE, stderr=PIPE, stdin=PIPE
     )
     if res.returncode:
-        logger.error('Не удалось дать общий доступ для папки бекапов:\n' + res.stderr.decode('utf-8'))
+        try:
+            stderr = res.stderr.decode()
+        except Exception:
+            stderr = 'Unknown'
+        logger.error('Не удалось дать общий доступ для папки бекапов:\n' + stderr)
 
     # Расширенные права общего доступа
     res = run(['net', 'share', 'BackupRetail'], stdout=PIPE, stderr=PIPE, stdin=PIPE)
@@ -338,14 +342,18 @@ def script(configuration, need_backup: bool):
     except ValueError:
         return
 
-    if device == 1:
-        res_dict = first_kassa()
-    elif device == 0 and need_backup:
-        res_dict = comzav()
-        if res_dict.get('status') == 'success':
-            now = str(time.time())
-            configuration.settings.reg_data.set_reg_key('LastComZavBackRetail', now)  # Время последнего бекапа
-    else:
+    try:
+        if device == 1:
+            res_dict = first_kassa()
+        elif device == 0 and need_backup:
+            res_dict = comzav()
+            if res_dict.get('status') == 'success':
+                now = str(time.time())
+                configuration.settings.reg_data.set_reg_key('LastComZavBackRetail', now)  # Время последнего бекапа
+        else:
+            return
+    except Exception:
+        logger.error('Необрабатываемая ошибка!', exc_info=True)
         return
 
     req_data = {
