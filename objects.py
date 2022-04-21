@@ -39,7 +39,6 @@ for _ in range(2):  # 2 попытки
 
         lib_control.check_app_lib_install()  # Проверяем, установлены ли библиотеки
 
-
 # Объект работы с реестром
 class RegData:
     def __init__(self):
@@ -703,6 +702,82 @@ class RegularScript:
     def _init_script(self):
         try:
             self.module.script(self.configuration)  # Пытаемся запустить скрипт
+            self._set_last_run()  # Устанавливет время последнего запуска в реестр
+        except Exception as e:
+            self.configuration.settings.logger.error(f'Ошибка в работе модуля {self.module_name}: {e}')
+
+    # Проверяет, необъодимо ли выполнить скрипт в потоке
+    def _check_need_init(self, last_run):
+        return SecondaryScripts.delta_need_init(last_run, self.uptime)  # Разница, между последним запуском и uptime
+
+    # Поток выполнения запуска скрипта
+    def _script_thread(self):
+        while True:
+            try:
+                # Пытаемся получить значение реестра
+                last_run = float(self.configuration.settings.reg_data.get_reg_value(self.reg_key))
+            except RegKeyNotFound:  # Если ключа нет
+                self._init_script()  # Запускаем сбор данных
+                continue
+
+            if self._check_need_init(last_run):  # Если необходимо выполнить
+                self._init_script()  # Инициализируем работу
+
+            time.sleep(60 * 10)  # Засыпает на 10 минут
+
+    # Устанавливет значение последнего запуска в реестр
+    def _set_last_run(self):
+        now = str(time.time())  # Получаем текущее время (с начала эпохи)
+        self.configuration.settings.reg_data.set_reg_key(self.reg_key, now)
+
+    # Запускает поток выполнения скрипта
+    def start_thread(self):
+        if self.module is None:  # Если модуль не импортировался
+            self.configuration.settings.logger.error(f'Ошибка в импорте модуля {self.module_name}')
+            return
+
+        thread = Thread(target=self._script_thread)  # Создаёт поток
+        thread.setName(self.thread_name)  # Задаём имя потоку
+        thread.start()  # Запускает поток
+
+    # Возвращает булево, необходимо ли выполнить скрипт
+    def need_init_script(self):
+        if self.configuration.group != GROUP_PHARMACY_INT:  # Если устройсто не Аптека
+            return False
+
+        return True
+
+
+class RetailBackup:
+    def __init__(self, configuration_obj: ConfigurationsObject):
+        self.configuration = configuration_obj  # Объект конфигурации
+
+        self.module_name = 'retail_backup'  # Наименование модуля
+        self.reg_key = 'LastRunRetailBackup'  # Параметр в реестре (время последнего запуска)
+        self.uptime = 4 * 60 * 60  # Кол-во секунд между запусками
+        self.thread_name = 'RetailBackup'  # Имя потока
+
+        self.reg_key_backup = 'LastComZavBackRetail'
+        self.backup_diff_time = 72 * 60 * 60  # Как часто делать бекапы
+
+        try:  # Пытаемся импортировать модуль
+            self.module = import_module(f'{SCRIPTS_DIR_NAME}.{self.module_name}')
+        except ImportError:  # Если ошибка импорта
+            self.configuration.settings.logger.error(f'Импорт модуля {self.module_name} не удался', exc_info=True)
+            self.module = None  # Ставим None
+
+    # Инициализирует запуск скрипта
+    def _init_script(self):
+        try:
+            need_backup = False
+            try:  # Время последнего бекапа
+                back_copy_time_diff = float(self.configuration.settings.reg_data.get_reg_value(self.reg_key_backup))
+                if SecondaryScripts.delta_need_init(back_copy_time_diff, self.backup_diff_time):
+                    need_backup = True
+            except RegKeyNotFound:
+                need_backup = True
+
+            self.module.script(self.configuration, need_backup)  # Пытаемся запустить скрипт
             self._set_last_run()  # Устанавливет время последнего запуска в реестр
         except Exception as e:
             self.configuration.settings.logger.error(f'Ошибка в работе модуля {self.module_name}: {e}')
