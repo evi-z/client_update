@@ -217,10 +217,10 @@ def init_scripts(configuration: ConfigurationsObject):
     app_sheduler = AppScheduler(configuration_obj=configuration)
     if app_sheduler.need_init_script():
         app_sheduler.start_thread()  # Запускаем поток
-
-    retail_backup = RetailBackup(configuration_obj=configuration)
-    if retail_backup.need_init_script():
-        retail_backup.start_thread()
+    #
+    # retail_backup = RetailBackup(configuration_obj=configuration)
+    # if retail_backup.need_init_script():
+    #     retail_backup.start_thread()
 
 
 # Завершат программу, предварительно завершив сопровождающий софт
