@@ -15,6 +15,7 @@ import time
 from subprocess import run, PIPE
 import locale
 import logging
+from pathlib import Path
 
 MB_SYSTEMMODAL = 0x00001000
 MB_ICONINFORMATION = 0x00000040
@@ -54,51 +55,73 @@ def get_logger(name):
 logger = get_logger(__name__)  # Инициализируем logger
 
 
-# Проверяет параметры в Report (печать DataMatrix)
-def get_backup_path():
-    path_to_reg_report_1c = [
-        (reg.HKEY_CURRENT_USER, r'SOFTWARE\1C\1Cv8\Report')
-    ]
+class ReportFileNotFound(Exception):
+    """ Вызывается, когда отсутсвует файл type.ini от 1С"""
 
-    hku_subkeys = []
-    k = reg.OpenKey(reg.HKEY_USERS, '')  # Открываем корень HKU
-    count_keys = reg.QueryInfoKey(k)[0]  # Колличество ключей раздела реестра
-    for index in range(count_keys):
-        sub_key = reg.EnumKey(k, index)
-        hku_subkeys.append(sub_key)
 
-    for sub_key in hku_subkeys:
-        path_to_reg_report_1c.append((reg.HKEY_USERS, sub_key + r'\SOFTWARE\1C\1Cv8\Report'))
+# Возвращает данные репорта (type.ini)
+def get_1c_report_data() -> dict:
+    public_path = os.environ['PUBLIC']
+    path_to_report_file = os.path.join(public_path, 'type.ini')
 
-    k = None
-    for key, sub_key in path_to_reg_report_1c:  # Ищем ключ в реестре
-        try:
-            k = reg.OpenKey(key, sub_key, 0, reg.KEY_ALL_ACCESS)
-            break
-        except FileNotFoundError:
-            pass
+    if not os.path.exists(path_to_report_file):
+        logger.error(f'Файл репорта по пути "{path_to_report_file}" не найден')
+        raise ReportFileNotFound
 
-    if k is None:  # Если не найден ключ
-        return None
+    report_data = {}
+    try:
+        with open(path_to_report_file, 'r', encoding='utf-8-sig') as report_file:
+            for field in report_file:
+                sp = field.replace('\n', '').split('=')
+                name, val = sp[0].strip(), sp[-1].strip()
+                report_data[name] = val
+    except Exception:
+        logger.error(f'Ошибка во время чтения файла репорта ("{path_to_report_file}")', exc_info=True)
+        raise FileNotFoundError
 
-    count_keys = reg.QueryInfoKey(k)[1]  # Колличество ключей раздела реестра
-    reg_dict = {}  # Словаь ключей реестра
-    for index in range(count_keys):  # Проходим по ключам
-        key, value, types = reg.EnumValue(k, index)
-        reg_dict[key] = value  # Пишем ключ - значение
-
-    return reg_dict.get('PathBackUP')
+    return report_data
 
 
 def first_kassa() -> dict:
-    backup_path = get_backup_path()
-    if not backup_path:
-        logger.error('Не обнаружен путь бекапов')
+    try:
+        report_data = get_1c_report_data()
+    except ReportFileNotFound:
+        logger.error('Не найден файл репорта (type.ini)')
         return {
             'status': 'error',
-            'status_code': 'NOT_FOUND_BACKUP_PATH',
-            'description': 'Не обнаружен путь бекапов'
+            'status_code': 'REPORT_FILE_NOT_FOUND',
+            'description': 'Не найден файл репорта (type.ini)'
         }
+    except FileNotFoundError:
+        logger.error('Ошибка во время чтения файла репорта (type.ini)')
+        return {
+            'status': 'error',
+            'status_code': 'REPORT_FILE_CANT_READ',
+            'description': 'Ошибка во время чтения файла репорта (type.ini)'
+        }
+
+    type_db = report_data.get('TypeIB')
+    if type_db == 'Server':
+        backup_path = r'C:\SaveBases\Backup'
+    elif type_db == 'File':
+        backup_path = report_data.get('PathBackUP')
+    else:
+        logger.error(f'Неизвестный тип БД, описанный в репорте ({type_db})')
+        return {
+            'status': 'error',
+            'status_code': 'TYPE_DB_UNKNOWN_FORMAT',
+            'description': f'Неизвестный формат БД, описанный в репорте ({type_db})'
+        }
+
+    if not os.path.exists(backup_path):
+        logger.error(f'Не существует путь к папке бекапов (type: {type_db} / path: "{backup_path}")')
+        return {
+            'status': 'error',
+            'type_db': type_db,
+            'status_code': 'BACKUP_PATH_NOT_EXISTS',
+            'description': f'Не существует путь к папке бекапов ({backup_path})'
+        }
+
     # Имя общего пользователя
     system_language = locale.windows_locale[ctypes.windll.kernel32.GetUserDefaultUILanguage()]
 
@@ -146,6 +169,7 @@ def first_kassa() -> dict:
     logger.info(f'Папка "{backup_path}" успешно расшарена')
     return {
         'status': 'success',
+        'type_db': type_db,
         'path': backup_path
     }
 
@@ -197,8 +221,28 @@ def comzav():
             'description': 'Не найдено сетевое расположение бекапов базы'
         }
 
-    backup_list = list(filter(lambda x: x.endswith('.zip'), listdir))
-    backup_list = [os.path.join(path, file) for file in backup_list]
+    # Сортировака по размерам
+    backup_list = [os.path.join(path, file) for file in listdir]
+    corr_backup_list = []
+    for path in backup_list:
+        size = 0
+        if os.path.isfile(path):  # Архивные + SQL
+            size = os.path.getsize(path) / (2 ** 30)
+
+        if os.path.isdir(path):  # Полновестные
+            size = sum(os.path.getsize(file) for file in Path(path).glob('**/*') if file.is_file()) / (2 ** 30)
+
+        if size > .5:
+            corr_backup_list.append(path)
+
+    backup_list = corr_backup_list
+    if not backup_list:
+        logger.error(f'В директории бекапов "{path}" отсутсвуют бекапы')
+        return {
+            'status': 'error',
+            'status_code': 'BACKUP_FOLDER_IS_EMPTY',
+            'description': f'В директории бекапов "{path}" отсутсвуют бекапы'
+        }
 
     # Поиск последнего бекапа
     last_time = 0
@@ -215,12 +259,12 @@ def comzav():
     except FileExistsError:
         pass
 
-    # Проверка свободного места
+    # Проверка свободного места (кроме полновестных)
     backup_size = os.path.getsize(last_backup) / (2 ** 30)
 
     _, _, free_disk_space = shutil.disk_usage(__file__)
     free_disk_space /= (2 ** 30)
-    if free_disk_space - 0.5 < backup_size:
+    if free_disk_space - 0.5 < backup_size and os.path.isfile(last_backup):
         backup_local_list = os.listdir(path_to_local_backup)
         low_space_ret = {
                 'status': 'error',
@@ -255,18 +299,25 @@ def comzav():
 
     # Проверка уже существующих копий
     backup_local_list = os.listdir(path_to_local_backup)
-    exists_backups = list(filter(lambda x: x == os.path.basename(last_backup), backup_local_list))
-    if exists_backups:
-        # Сверка размеров
-        local_backup = os.path.join(path_to_local_backup, exists_backups[0])
+    if os.path.isfile(last_backup) and os.path.basename(last_backup) in backup_local_list:
+        # Сверка размеров (кроме полновестных)
+        local_backup = os.path.join(path_to_local_backup, os.path.basename(last_backup))
+
         size_equal = os.path.getsize(local_backup) == os.path.getsize(last_backup)
         if size_equal:
             logger.error(f'Бекап "{last_backup}" уже существует в локальной директории')
             return {
-                'status': 'warning',
-                'status_code': 'LOCAL_BACKUP_EXISTS',
-                'description': f'Локальный бекап уже существует ({local_backup})'
-            }
+                    'status': 'error',
+                    'status_code': 'LOCAL_BACKUP_EXISTS',
+                    'description': f'Локальный бекап уже существует ({local_backup})'
+                }
+    elif os.path.isdir(last_backup) and os.path.basename(last_backup) + '.zip' in backup_local_list:
+        logger.error(f'Бекап "{last_backup}" уже существует в локальной директории')
+        return {
+            'status': 'error',
+            'status_code': 'LOCAL_BACKUP_EXISTS',
+            'description': f'Локальный бекап уже существует (FULL SIZE)'
+        }
 
     # Удаление старых бекапов
     if len(backup_local_list) > 2:
@@ -290,21 +341,28 @@ def comzav():
 
     logger.info(f'Начато копирование бекапа базы по пути "{last_backup}"')
     start_time = time.time()
+    fullsize = False
     try:
-        shutil.copy2(last_backup, path_to_local_backup)
+        if os.path.isfile(last_backup):
+            shutil.copy2(last_backup, path_to_local_backup)
+
+        elif os.path.isdir(last_backup):
+            fullsize = True
+            output_filename = os.path.join(path_to_local_backup, os.path.basename(last_backup))
+            shutil.make_archive(output_filename, 'zip', last_backup)
     except Exception:
         logger.error(
             f'Не удалось скопировать бекап "{last_backup}" в локальную директорию "{path_to_local_backup}"',
             exc_info=True
         )
         create_msbox(
-            'Во время копирования базы 1С произошла ошибка. Пожалуйста, сообщите об этом в IT Отдел',
+            'Во время копирования базы 1С произошла ошибка. Можете продолжать работу, хорошего дня!',
             title='Ошибка', style=MB_ICONERROR
         )
         return {
             'status': 'error',
             'status_code': 'BACKUP_COPY_ERROR',
-            'description': 'Ошибка во время копирования бекапа'
+            'description': f'Ошибка во время копирования бекапа (fullsize: {fullsize})'
         }
 
     copy_time_new = time.time() - start_time
@@ -316,7 +374,8 @@ def comzav():
 
     return {
         'status': 'success',
-        'copy_time': copy_time_new
+        'copy_time': copy_time_new,
+        'fullsize': fullsize
     }
 
 
@@ -343,11 +402,12 @@ def script(configuration, need_backup: bool):
         return
 
     try:
-        if device == 1:
+        if device in [1, 99]:
             res_dict = first_kassa()
         elif device == 0 and need_backup:
             res_dict = comzav()
-            if res_dict.get('status') == 'success':
+            # TODO Если BACKUP_COPY_ERROR - тоже писать LastComZavBackRetail?
+            if res_dict.get('status') == 'success' or res_dict.get('status_code') == 'BACKUP_COPY_ERROR':
                 now = str(time.time())
                 configuration.settings.reg_data.set_reg_key('LastComZavBackRetail', now)  # Время последнего бекапа
         else:
