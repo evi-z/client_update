@@ -203,7 +203,7 @@ def comzav():
             return {
                 'status': 'error',
                 'status_code': 'SHARE_FOLDER_PERMISSION_ERROR',
-                'description': f'Отказано в досупе к расположению "{path}"'
+                'description': f'Отказано в досупе к расположению ({path})'
             }
         except Exception as ex:
             path_conn_dict[path] = str(ex)
@@ -221,7 +221,7 @@ def comzav():
             'description': 'Не найдено сетевое расположение бекапов базы'
         }
 
-    # Сортировака по размерам
+    # Отсеивание по размерам
     backup_list = [os.path.join(path, file) for file in listdir]
     corr_backup_list = []
     for path in backup_list:
@@ -236,12 +236,15 @@ def comzav():
             corr_backup_list.append(path)
 
     backup_list = corr_backup_list
+    # Отсеиваем полновестные бекапы в день релиза
+    backup_list = list(filter(lambda x: not x.endswith('.1CD'), backup_list))
+
     if not backup_list:
-        logger.error(f'В директории бекапов "{path}" отсутсвуют бекапы')
+        logger.error(f'В директории бекапов ({path}) отсутсвуют бекапы')
         return {
             'status': 'error',
             'status_code': 'BACKUP_FOLDER_IS_EMPTY',
-            'description': f'В директории бекапов "{path}" отсутсвуют бекапы'
+            'description': f'В директории бекапов ({path}) отсутсвуют бекапы'
         }
 
     # Поиск последнего бекапа
@@ -351,6 +354,7 @@ def comzav():
             output_filename = os.path.join(path_to_local_backup, os.path.basename(last_backup))
             shutil.make_archive(output_filename, 'zip', last_backup)
     except Exception:
+        # TODO PermissionError
         logger.error(
             f'Не удалось скопировать бекап "{last_backup}" в локальную директорию "{path_to_local_backup}"',
             exc_info=True
