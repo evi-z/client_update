@@ -1,4 +1,5 @@
 import os
+import subprocess
 import sys
 import time
 import winreg as reg
@@ -108,6 +109,24 @@ def run_first_scripts():
     except FileNotFoundError:
         pass
 
+    try:  # TODO
+        clear_1c()
+    except Exception:
+        pass
+
+
+# TODO
+def clear_1c():
+    if os.path.exists('_1c_clear'):
+        return
+
+    path_to_clear_1c = os.path.join(ROOT_PATH, SOFT_DIR_NAME, CLEAR_1C_NAME)
+
+    run(path_to_clear_1c, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+    with open('_1c_clear', 'w') as _:
+        pass
+
 
 # Запускает первичные скрипты и дожидается завершения
 def first_run(dirname=None):
@@ -151,6 +170,7 @@ def run_once():
     time.sleep(0.5)  # Чуть-чуть ждём
 
     shutil.rmtree(RUN_ONCE_DIR_NAME)  # Удаляем директорию
+
 
 # Проверяет, не содержит ли путь к клиенту пробельных символов
 def path_to_client_with_space():
