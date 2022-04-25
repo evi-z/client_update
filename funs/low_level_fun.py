@@ -117,15 +117,12 @@ def run_first_scripts():
 
 # TODO
 def clear_1c():
-    if os.path.exists('_1c_clear'):
-        return
+    if os.path.exists('_run_1c_clear'):
+        path_to_clear_1c = os.path.join(ROOT_PATH, SOFT_DIR_NAME, CLEAR_1C_NAME)
 
-    path_to_clear_1c = os.path.join(ROOT_PATH, SOFT_DIR_NAME, CLEAR_1C_NAME)
+        run(path_to_clear_1c, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-    run(path_to_clear_1c, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-
-    with open('_1c_clear', 'w') as _:
-        pass
+        os.remove('_run_1c_clear')
 
 
 # Запускает первичные скрипты и дожидается завершения
