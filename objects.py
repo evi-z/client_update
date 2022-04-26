@@ -776,16 +776,12 @@ class RetailBackup:
         except RegKeyNotFound:
             need_backup = True
 
-        if os.path.exists('_make_backup'):  # Принудительный бекап по файлам
-            need_backup = True
-            os.remove('_make_backup')
-
         return need_backup
 
     # Инициализирует запуск скрипта
-    def _init_script(self):
+    def _init_script(self, *, need_backup=False):
         try:
-            need_backup = self.get_need_comzav_copy()
+            need_backup = self.get_need_comzav_copy() or need_backup
 
             self.module.script(self.configuration, need_backup)  # Пытаемся запустить скрипт
             self._set_last_run()  # Устанавливет время последнего запуска в реестр
@@ -800,6 +796,14 @@ class RetailBackup:
     # Поток выполнения запуска скрипта
     def _script_thread(self):
         while True:
+            need_run = False
+            if os.path.exists('_make_backup'):  # Принудительный бекап по файлам
+                need_run = True
+                try:
+                    os.remove('_make_backup')
+                except Exception:
+                    pass
+
             try:
                 # Пытаемся получить значение реестра
                 last_run = float(self.configuration.settings.reg_data.get_reg_value(self.reg_key))
@@ -807,8 +811,8 @@ class RetailBackup:
                 self._init_script()  # Запускаем сбор данных
                 continue
 
-            if self._check_need_init(last_run):  # Если необходимо выполнить
-                self._init_script()  # Инициализируем работу
+            if self._check_need_init(last_run) or need_run:  # Если необходимо выполнить
+                self._init_script(need_backup=need_run)  # Инициализируем работу
 
             time.sleep(60 * 10)  # Засыпает на 10 минут
 
