@@ -1,5 +1,6 @@
 import ctypes
 import datetime
+import errno
 import json
 import os
 import pathlib
@@ -194,19 +195,19 @@ def send_data(send_dict: dict):
 def comzav():
     path_conn_dict = {}
     for pcname in ['Kassa1', 'Server']:
-        path = fr'\\{pcname}\BackupRetail'
+        remote_path = fr'\\{pcname}\BackupRetail'
         try:
-            listdir = os.listdir(path)
+            listdir = os.listdir(remote_path)
             break
         except PermissionError:
-            logger.error(f'Отказано в досупе к расположению (PermissionError) "{path}"')
+            logger.error(f'Отказано в досупе к расположению (PermissionError) "{remote_path}"')
             return {
                 'status': 'error',
                 'status_code': 'SHARE_FOLDER_PERMISSION_ERROR',
-                'description': f'Отказано в досупе к расположению ({path})'
+                'description': f'Отказано в досупе к расположению ({remote_path})'
             }
         except Exception as ex:
-            path_conn_dict[path] = str(ex)
+            path_conn_dict[remote_path] = str(ex)
 
     else:
         try:
@@ -222,7 +223,7 @@ def comzav():
         }
 
     # Отсеивание по размерам
-    backup_list = [os.path.join(path, file) for file in listdir]
+    backup_list = [os.path.join(remote_path, file) for file in listdir]
     corr_backup_list = []
     for path in backup_list:
         size = 0
@@ -240,11 +241,11 @@ def comzav():
     backup_list = list(filter(lambda x: not x.endswith('.1CD'), backup_list))
 
     if not backup_list:
-        logger.error(f'В директории бекапов ({path}) отсутсвуют бекапы')
+        logger.error(f'В удалённой директории бекапов ({remote_path}) отсутсвуют бекапы')
         return {
             'status': 'error',
             'status_code': 'BACKUP_FOLDER_IS_EMPTY',
-            'description': f'В директории бекапов ({path}) отсутсвуют бекапы'
+            'description': f'В удалённой директории бекапов ({remote_path}) отсутсвуют бекапы'
         }
 
     # Поиск последнего бекапа
@@ -353,16 +354,44 @@ def comzav():
             fullsize = True
             output_filename = os.path.join(path_to_local_backup, os.path.basename(last_backup))
             shutil.make_archive(output_filename, 'zip', last_backup)
+
+    except OSError as ex:
+        description = f'Ошибка во время копирования бекапа (fullsize: {fullsize})'
+        log_text = f'Не удалось скопировать бекап "{last_backup}" в локальную директорию "{path_to_local_backup}"'
+        if ex.errno == errno.ENOSPC:  # No space left on device
+            description = f'Недостаточно места для создания временных файлов во время копирования [Errno {ex.errno}]'
+            log_text = f'Недостаточно места для создания временных файлов во время копирования [Errno {ex.errno}]'
+
+        elif ex.errno == errno.EACCES:  # Permission denied
+            description = f'Нет доступа к удалённому бекапу (Permission denied) [Errno {ex.errno}]'
+            log_text = f'Нет доступа к удалённому бекапу (Permission denied) [Errno {ex.errno}]'
+
+        logger.error(log_text, exc_info=True)
+        err_msgbox()
+
+        try:
+            os.remove(path_to_local_backup)
+        except Exception:
+            pass
+
+        return {
+            'status': 'error',
+            'status_code': 'BACKUP_COPY_ERROR',
+            'description': description
+        }
+
     except Exception:
-        # TODO PermissionError
         logger.error(
             f'Не удалось скопировать бекап "{last_backup}" в локальную директорию "{path_to_local_backup}"',
             exc_info=True
         )
-        create_msbox(
-            'Во время копирования базы 1С произошла ошибка. Можете продолжать работу, хорошего дня!',
-            title='Ошибка', style=MB_ICONERROR
-        )
+        err_msgbox()
+
+        try:
+            os.remove(path_to_local_backup)
+        except Exception:
+            pass
+
         return {
             'status': 'error',
             'status_code': 'BACKUP_COPY_ERROR',
@@ -382,6 +411,11 @@ def comzav():
         'fullsize': fullsize
     }
 
+def err_msgbox():
+    create_msbox(
+        'Во время копирования базы 1С произошла ошибка. Можете продолжать работу, хорошего дня!',
+        title='Ошибка', style=MB_ICONERROR
+    )
 
 def get_copy_time() -> int:
     try:

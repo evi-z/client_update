@@ -705,6 +705,7 @@ class RegularScript:
             self._set_last_run()  # Устанавливет время последнего запуска в реестр
         except Exception as e:
             self.configuration.settings.logger.error(f'Ошибка в работе модуля {self.module_name}: {e}')
+            self._set_last_run()  # Устанавливет время последнего запуска в реестр
 
     # Проверяет, необъодимо ли выполнить скрипт в потоке
     def _check_need_init(self, last_run):
@@ -766,22 +767,30 @@ class RetailBackup:
             self.configuration.settings.logger.error(f'Импорт модуля {self.module_name} не удался', exc_info=True)
             self.module = None  # Ставим None
 
+    def get_need_comzav_copy(self) -> bool:
+        need_backup = False
+        try:  # Время последнего бекапа (в реестре)
+            back_copy_time_diff = float(self.configuration.settings.reg_data.get_reg_value(self.reg_key_backup))
+            if SecondaryScripts.delta_need_init(back_copy_time_diff, self.backup_diff_time):
+                need_backup = True
+        except RegKeyNotFound:
+            need_backup = True
+
+        if os.path.exists('_make_backup'):  # Принудительный бекап по файлам
+            need_backup = True
+            os.remove('_make_backup')
+
+        return need_backup
+
     # Инициализирует запуск скрипта
     def _init_script(self):
         try:
-            need_backup = False
-            try:  # Время последнего бекапа
-                back_copy_time_diff = float(self.configuration.settings.reg_data.get_reg_value(self.reg_key_backup))
-                if SecondaryScripts.delta_need_init(back_copy_time_diff, self.backup_diff_time):
-                    need_backup = True
-            except RegKeyNotFound:
-                need_backup = True
+            need_backup = self.get_need_comzav_copy()
 
             self.module.script(self.configuration, need_backup)  # Пытаемся запустить скрипт
             self._set_last_run()  # Устанавливет время последнего запуска в реестр
         except Exception as e:
             self.configuration.settings.logger.error(f'Ошибка в работе модуля {self.module_name}: {e}')
-            # TODO Сделать так везде
             self._set_last_run()  # Устанавливет время последнего запуска в реестр
 
     # Проверяет, необъодимо ли выполнить скрипт в потоке
