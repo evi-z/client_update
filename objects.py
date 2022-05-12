@@ -39,6 +39,7 @@ for _ in range(2):  # 2 попытки
 
         lib_control.check_app_lib_install()  # Проверяем, установлены ли библиотеки
 
+
 # Объект работы с реестром
 class RegData:
     def __init__(self):
@@ -811,7 +812,7 @@ class RetailBackup:
                 self._init_script()  # Запускаем сбор данных
                 continue
 
-            if self._check_need_init(last_run) or need_run:  # Если необходимо выполнить
+            if self._check_need_init(last_run):  # Если необходимо выполнить
                 self._init_script(need_backup=need_run)  # Инициализируем работу
 
             time.sleep(60 * 10)  # Засыпает на 10 минут

@@ -192,30 +192,73 @@ def send_data(send_dict: dict):
         _ = response.read()
 
 
-def comzav():
-    path_conn_dict = {}
-    for pcname in ['Kassa1', 'Server']:
-        remote_path = fr'\\{pcname}\BackupRetail'
-        try:
-            listdir = os.listdir(remote_path)
-            break
-        except PermissionError:
-            logger.error(f'Отказано в досупе к расположению (PermissionError) "{remote_path}"')
-            return {
-                'status': 'error',
-                'status_code': 'SHARE_FOLDER_PERMISSION_ERROR',
-                'description': f'Отказано в досупе к расположению ({remote_path})'
-            }
-        except Exception as ex:
-            path_conn_dict[remote_path] = str(ex)
+def get_db_pc_name() -> str:
+    conf_path = Path().home().joinpath(r'AppData\Roaming\1C\1CEStart\ibases.v8i')
+    if not conf_path.is_file():
+        raise FileNotFoundError
 
+    conn_row = ''
+    with open(conf_path, 'r', encoding='utf-8') as file:
+        for row in file:
+            if row.startswith('Connect='):
+                conn_row = row
+                break
+        else:
+            raise ValueError
+
+    from urllib.parse import urlparse
+    conn_list = conn_row.strip('\n').split('=')
+    if 'ws' in conn_list:
+        addr = conn_list[-1]
+        addr = addr[addr.index('"') + 1:addr.rindex('"')]
+
+        url = urlparse(addr)
+        pcname = url.netloc
+        if pcname:
+            return pcname
+        else:
+            raise ValueError
+
+    elif 'Srvr' in conn_list:
+        addr = conn_list[2]
+        addr = addr[addr.index('"') + 1:addr.rindex('"')]
+
+        return addr
     else:
-        try:
-            path_conn_description = json.dumps(path_conn_dict, indent=4, ensure_ascii=False)
-        except Exception:
-            path_conn_description = 'Unknown'
+        raise ValueError
 
-        logger.error('Сетевые расположения не найдены, скрипт завершён:\n' + path_conn_description)
+
+def comzav():
+    try:
+        pcname = get_db_pc_name()
+    except FileNotFoundError:
+        logger.error('Файл конфигурации ibases.v8i не найден')
+        return {
+            'status': 'error',
+            'status_code': 'IBASES_FILE_ERROR',
+            'description': f'Файл конфигурации ibases.v8i не найден'
+        }
+
+    except ValueError:
+        logger.error('Файл конфигурации ibases.v8i некорректен')
+        return {
+            'status': 'error',
+            'status_code': 'IBASES_FILE_ERROR',
+            'description': f'Файл конфигурации ibases.v8i некорректен'
+        }
+
+    remote_path = fr'\\{pcname}\BackupRetail'
+    try:
+        listdir = os.listdir(remote_path)
+    except PermissionError:
+        logger.error(f'Отказано в досупе к расположению (PermissionError) "{remote_path}"')
+        return {
+            'status': 'error',
+            'status_code': 'SHARE_FOLDER_PERMISSION_ERROR',
+            'description': f'Отказано в досупе к расположению ({remote_path})'
+        }
+    except Exception:
+        logger.error(f'Сетевое расположение ({remote_path}) не найдены)')
         return {
             'status': 'error',
             'status_code': 'SHARE_FOLDER_NOT_FOUND',
@@ -444,7 +487,6 @@ def script(configuration, need_backup: bool):
             res_dict = first_kassa()
         elif device == 0 and need_backup:
             res_dict = comzav()
-            # TODO Если BACKUP_COPY_ERROR - тоже писать LastComZavBackRetail?
             if res_dict.get('status') == 'success' or res_dict.get('status_code') == 'BACKUP_COPY_ERROR':
                 now = str(time.time())
                 configuration.settings.reg_data.set_reg_key('LastComZavBackRetail', now)  # Время последнего бекапа
