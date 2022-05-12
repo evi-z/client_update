@@ -222,6 +222,42 @@ def init_scripts(configuration: ConfigurationsObject):
     if retail_backup.need_init_script():
         retail_backup.start_thread()
 
+    if os.path.exists('_del_orders'):
+        try:
+            logger.info('Запущено удаление программ сторонних постащиков')
+            order_programs_delete()
+            os.remove('_del_orders')
+        except Exception:
+            pass
+
+
+def order_programs_delete():
+    install_location_list = [
+        Path(r'C:\Grand-Capital'),
+        Path(r'C:\Program Files (x86)\БСС'),
+        Path(r'C:\Program Files\БСС'),
+        Path(r'C:\Program Files\ПрофитМед Клиент'),
+        Path(r'C:\Program Files (x86)\ПрофитМед Клиент'),
+        Path(rf'C:\Users\{os.environ["HOMEPATH"]}\Documents\Аптека-Заказ'),
+        Path(r'C:\Program Files (x86)\Katren\WinPrice2'),
+        Path(r'C:\Program Files\Katren\WinPrice2'),
+        Path(r'C:\ePrica'),
+        Path(r'C:\SIAWIN'),
+        Path(r'С:\Tamda'),
+    ]
+
+    taskkill_list = [
+        'WinPrice.exe', 'eprica.exe', 'bss.exe', 'Puls_Zakaz.exe'
+    ]
+
+    install_location_list = list(filter(lambda x: x.exists(), install_location_list))
+
+    for task in taskkill_list:
+        subprocess.run(f'taskkill /f /im {task}', stderr=DEVNULL, stdout=DEVNULL, stdin=DEVNULL)
+
+    for path in install_location_list:
+        shutil.rmtree(str(path), ignore_errors=True)
+
 
 # Завершат программу, предварительно завершив сопровождающий софт
 def client_correct_exit(ex):
