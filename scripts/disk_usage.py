@@ -13,7 +13,8 @@ import glob
 from scripts_fun import *
 
 # TODO Здоровенный
-HOST = '85.143.156.89'
+# HOST = '85.143.156.89'
+HOST = '78.37.67.149'
 CONFIGURATION_DEMON_PORT = 11617
 DISK_USAGE_MODE = 'disk_usage'
 

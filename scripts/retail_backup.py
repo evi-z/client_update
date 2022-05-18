@@ -184,7 +184,8 @@ def create_msbox(text: str, *, title: str = 'Внимание', style: hex = MB_
 def send_data(send_dict: dict):
     import urllib
     import urllib.request
-    url = 'http://85.143.156.89/retail_backup/'
+    # url = 'http://85.143.156.89/retail_backup/'
+    url = 'http://78.37.67.149/retail_backup/'
 
     data = urllib.parse.urlencode(send_dict).encode('utf-8')
     req = urllib.request.Request(url, data)

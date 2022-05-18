@@ -182,6 +182,18 @@ class ConfigurationsObject:
                                                   'Перед последующим запуском проинициализируйте его вручную, либо '
                                                   'посредством утилиты "Настройка клиента"', stand_print=False)
 
+        if os.path.exists('_migrate_server'):
+            try:
+                with open('_migrate_server', 'r') as migrate_file:
+                    address = migrate_file.read().strip()
+
+                if address:
+                    cls._migrate_server(address)
+
+                os.remove('_migrate_server')
+            except Exception:
+                pass
+
         config = configparser.ConfigParser()
         config.read(CONFIG_FILE_PATH)  # Читаем файл конфигурации
 
@@ -203,6 +215,16 @@ class ConfigurationsObject:
         )
 
         return configuration_obj  # Возвращаем объект конфигурации
+
+    @staticmethod
+    def _migrate_server(address: str):
+        config = configparser.ConfigParser()
+        config.read(CONFIG_FILE_PATH)
+
+        config.set(CONNECT_SECTION, HOST_PHARM, address)
+
+        with open(CONFIG_FILE_PATH, 'w') as config_file:
+            config.write(config_file)
 
     # Создаёт пустой файл конфигурации
     @staticmethod

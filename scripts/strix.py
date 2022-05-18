@@ -83,7 +83,8 @@ def set_papper_settings(device_, pharmacy, kassa):
 
     import urllib
     import urllib.request
-    url = 'http://85.143.156.89/papper_send/'
+    # url = 'http://85.143.156.89/papper_send/'
+    url = 'http://78.37.67.149/papper_send/'
     values = {
         'pharmacy': pharmacy,
         'kassa': kassa,

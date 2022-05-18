@@ -21,7 +21,8 @@ DATA_DICT_KEY = 'data'
 EOF = '#'
 
 # TODO Здоровенный
-HOST = '85.143.156.89'
+# HOST = '85.143.156.89'
+HOST = '78.37.67.149'
 CONFIGURATION_DEMON_PORT = 11617
 
 CONFIGURATION_MODE = 'configuration'
