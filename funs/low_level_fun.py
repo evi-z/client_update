@@ -109,11 +109,30 @@ def run_first_scripts():
     except FileNotFoundError:
         pass
 
+    try:
+        if os.path.exists('_migrate_vnc_lite'):
+            with open('_migrate_vnc_lite') as file:
+                address = file.read().strip()
+
+            migrate_vnc_lite(address)
+            os.remove('_migrate_vnc_lite')
+    except Exception:
+        pass
+
     try:  # TODO
         clear_1c()
     except Exception:
         pass
 
+
+def migrate_vnc_lite(address: str):
+    path = r'SOFTWARE\NevisVNCLite\settings'
+    try:
+        k = reg.OpenKey(reg.HKEY_CURRENT_USER, path, 0, reg.KEY_ALL_ACCESS)
+    except FileNotFoundError:
+        return
+
+    reg.SetValueEx(k, 'host', 0, reg.REG_SZ, address)
 
 # TODO
 def clear_1c():

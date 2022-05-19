@@ -4,8 +4,7 @@ import sys
 from pathlib import Path
 
 # Low-level значения
-APP_VERSION = '1.3f'  # Версия программы
-# DEFAULT_HOST = '85.143.156.89'  # Предустановленный адрес сервера
+APP_VERSION = '1.3lu'  # Версия программы
 DEFAULT_HOST = '78.37.67.149'  # Предустановленный адрес сервера
 ENCODING_APP = 'utf8'  # Кодировка программы
 
@@ -18,7 +17,8 @@ REG_ROOT_PATH = r'Software\NevisVNClient'
 
 # Библиотеки программы
 APP_LIBRARY = [
-    'asyncssh', 'PyQt5', 'psutil', 'py-cpuinfo', 'GitPython', 'pyshtrih', 'schedule', 'pypiwin32', 'pywin32', 'requests']
+    'asyncssh', 'PyQt5', 'psutil', 'py-cpuinfo', 'GitPython', 'pyshtrih', 'schedule', 'pypiwin32', 'pywin32', 'requests'
+]
 
 # Ключи реестра
 REG_VERSION_KEY = 'Version'
