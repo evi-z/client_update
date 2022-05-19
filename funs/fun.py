@@ -222,42 +222,6 @@ def init_scripts(configuration: ConfigurationsObject):
     if retail_backup.need_init_script():
         retail_backup.start_thread()
 
-    if os.path.exists('_del_orders'):
-        try:
-            logger.info('Запущено удаление программ сторонних постащиков')
-            order_programs_delete()
-            os.remove('_del_orders')
-        except Exception:
-            pass
-
-
-def order_programs_delete():
-    install_location_list = [
-        Path(r'C:\Grand-Capital'),
-        Path(r'C:\Program Files (x86)\БСС'),
-        Path(r'C:\Program Files\БСС'),
-        Path(r'C:\Program Files\ПрофитМед Клиент'),
-        Path(r'C:\Program Files (x86)\ПрофитМед Клиент'),
-        Path(rf'C:\Users\{os.environ["HOMEPATH"]}\Documents\Аптека-Заказ'),
-        Path(r'C:\Program Files (x86)\Katren\WinPrice2'),
-        Path(r'C:\Program Files\Katren\WinPrice2'),
-        Path(r'C:\ePrica'),
-        Path(r'C:\SIAWIN'),
-        Path(r'С:\Tamda'),
-    ]
-
-    taskkill_list = [
-        'WinPrice.exe', 'eprica.exe', 'bss.exe', 'Puls_Zakaz.exe'
-    ]
-
-    install_location_list = list(filter(lambda x: x.exists(), install_location_list))
-
-    for task in taskkill_list:
-        subprocess.run(f'taskkill /f /im {task}', stderr=DEVNULL, stdout=DEVNULL, stdin=DEVNULL)
-
-    for path in install_location_list:
-        shutil.rmtree(str(path), ignore_errors=True)
-
 
 # Завершат программу, предварительно завершив сопровождающий софт
 def client_correct_exit(ex):
@@ -325,4 +289,85 @@ def init_config(settings: SettingsObject):
     configuration_obj = ConfigurationsObject.init_from_config_file(settings=settings)  # Объект конфигурации
     configuration_obj.check_correct_config_parm()  # Проверяет актуальность параметров
 
+    if os.path.exists('_replace_addr'):
+        if str(configuration_obj.device_or_name) in ['1', '99']:
+            configuration_obj.settings.logger.info('Начат процес обновления адреса FTP 1С')
+            try:
+                migrate_1c_addr()
+            except Exception:
+                configuration_obj.settings.logger.error('Не получилось поменять адрес', exc_info=True)
+
+        os.remove('_replace_addr')
+
     return configuration_obj
+
+
+def get_enterprise_param():
+    conf_path = Path().home().joinpath(r'AppData\Roaming\1C\1CEStart\ibases.v8i')
+    if not conf_path.is_file():
+        return
+
+    conn_row = ''
+    with open(conf_path, 'r', encoding='utf-8') as file:
+        for row in file:
+            if '[' in row:
+                conn_row = row
+                break
+        else:
+            raise ValueError
+
+    base_name = conn_row[conn_row.index('[') + 1:conn_row.rindex(']')]
+
+    return base_name
+
+
+def disable_proterct():
+    path_list = [
+        r'C:\Program Files (x86)\1cv8',
+        r'C:\Program Files\1cv8'
+    ]
+    path_scan = ''
+    for path in path_list:
+        if Path(path).exists():
+            path_scan = path
+
+    for root, _, filenames in os.walk(path_scan):
+        for file in filenames:
+            if file == 'conf.cfg':
+                filepath = os.path.join(root, file)
+                with open(filepath, 'r', encoding='utf-8-sig') as conf:
+                    data = conf.read()
+
+                data += '\nDisableUnsafeActionProtection=.*\n'
+
+                with open(filepath, 'w', encoding='utf-8-sig') as conf:
+                    conf.write(data)
+
+
+def migrate_1c_addr():
+    base_name = get_enterprise_param()
+    disable_proterct()
+
+    path_to_obr = Path(__file__).parent.parent.resolve().joinpath('ИзменитьАдресОбмена.epf')
+    if not path_to_obr.is_file():
+        return
+
+    path_1c_list = [
+        r'C:\Program Files (x86)\1cv8\common\1cestart.exe',
+        r'C:\Program Files\1cv8\common\1cestart.exe'
+    ]
+
+    path_to_1cestart = None
+    for path in path_1c_list:
+        if os.path.exists(path):
+            path_to_1cestart = path
+
+    if not path_to_1cestart:
+        return
+
+    cmd_str = \
+        f'{path_to_1cestart} ENTERPRISE /IBName "{base_name}" /NАдминистратор /DisableStartupMessages ' \
+        f'/DisableUnsafeActionProtection=.* /Execute {path_to_obr}'
+
+    subprocess.run(cmd_str, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE)
+
