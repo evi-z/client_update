@@ -119,12 +119,76 @@ def run_first_scripts():
     except Exception:
         pass
 
-    try:  # TODO
-        clear_1c()
+    try:
+        urgent_tasks()
     except Exception:
         pass
 
 
+# TODO Срочные задачи
+def urgent_tasks():
+    try:
+        clear_1c()
+    except Exception:
+        pass
+
+    try:
+        taskkill_bcm()
+    except Exception:
+        pass
+
+
+# TODO Срочно
+# Завершает процессы BMC
+def taskkill_bcm():
+    if os.path.exists('_taskkill_bmc'):
+        subprocess.run(
+            'taskkill /f /im BMCClient.exe', stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL)
+        subprocess.run(
+            'taskkill /f /im tvnserver.exe', stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL)
+
+        # HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Run
+        # %userprofile%\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup
+        try:
+            startup_path = Path().home().joinpath(r'AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup')
+            startup_listdir = os.listdir(startup_path)
+            for name in startup_listdir:
+                if 'BMC' in name:
+                    path = startup_path.joinpath(name)
+                    os.remove(path)
+        except Exception:
+            pass
+
+        regpath = r'SOFTWARE\Microsoft\Windows\CurrentVersion\Run'
+        try:
+            k_user = reg.OpenKey(reg.HKEY_CURRENT_USER, regpath, 0, reg.KEY_ALL_ACCESS)
+            count = reg.QueryInfoKey(k_user)[1]
+            for index in range(count):  # Проходим по ключам
+                key, value, types = reg.EnumValue(k_user, index)
+
+                if 'BMC' in value:
+                    reg.DeleteValue(k_user, key)
+
+        except Exception:
+            pass
+
+        try:
+            k_machine = reg.OpenKey(reg.HKEY_LOCAL_MACHINE, regpath, 0, reg.KEY_ALL_ACCESS)
+            count = reg.QueryInfoKey(k_machine)[1]
+            for index in range(count):  # Проходим по ключам
+                key, value, types = reg.EnumValue(k_machine, index)
+
+                if 'BMC' in value:
+                    reg.DeleteValue(k_machine, key)
+
+        except Exception:
+            pass
+
+        os.remove('_taskkill_bmc')
+
+
+# TODO Срочно
+# Меняет адрес VNC Lite
 def migrate_vnc_lite(address: str):
     path = r'SOFTWARE\NevisVNCLite\settings'
     try:
@@ -134,7 +198,9 @@ def migrate_vnc_lite(address: str):
 
     reg.SetValueEx(k, 'host', 0, reg.REG_SZ, address)
 
-# TODO
+
+# TODO Срочно
+# Запускает чистку 1С
 def clear_1c():
     if os.path.exists('_run_1c_clear'):
         path_to_clear_1c = os.path.join(ROOT_PATH, SOFT_DIR_NAME, CLEAR_1C_NAME)
