@@ -371,3 +371,7 @@ def migrate_1c_addr():
 
     subprocess.run(cmd_str, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE)
 
+
+def get_url(host: str, page: str):
+    return 'http://' + host + page
+

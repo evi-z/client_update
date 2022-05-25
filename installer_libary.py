@@ -3,7 +3,7 @@ import sys
 import time
 import json
 from pathlib import Path
-from subprocess import run, PIPE, Popen
+from subprocess import run, PIPE, Popen, CalledProcessError, check_call, DEVNULL
 
 from bin.values import *
 

@@ -20,6 +20,7 @@ from errors import *
 
 for _ in range(2):  # 2 попытки
     try:
+        import requests
         import psutil
         import asyncssh
         import git.exc
@@ -96,7 +97,7 @@ class SettingsObject:
     def __init__(self, *, lib_control_obj, root_file_path: str):
         self.reg_data = RegData()  # Объект работы с реестром
         self.lib_control = lib_control_obj  # Объект контроля либ
-        self.logger = lib_control_obj.logger  # Переводим логгер в настройки
+        self.logger: logging.Logger = lib_control_obj.logger  # Переводим логгер в настройки
         self.root_file_path = root_file_path  # Атрибут __file__ клиента
 
         self._set_last_app_run()  # Устанавливем время последнего запуска программы в реестр
@@ -297,7 +298,8 @@ class ConfigurationsObject:
         initialization_dict = {
             GROUP_KEY: self.group,
             FIRST_IDENTIFIER: self.pharmacy_or_subgroup,
-            SECOND_IDENTIFIER: self.device_or_name
+            SECOND_IDENTIFIER: self.device_or_name,
+            APP_VERSION_KEY: APP_VERSION
         }
 
         return initialization_dict
@@ -982,11 +984,12 @@ class SSHConnection:
                 known_hosts=None  # Отключить проверку на ключи
         ) as conn:
             conn.set_keepalive(5 * 60, 3)  # Устанавливаем keepalive в 5 минут c 3мя попытками
-            listener = await conn.forward_remote_port('', self.remote_port, 'localhost',
-                                                      LOCAL_VNC_PORT)  # Пробрасываем порт
+            listener = await conn.forward_remote_port(
+                '', self.remote_port, 'localhost', LOCAL_VNC_PORT)  # Пробрасываем порт
             self._set_last_reconnect_in_reg()  # Устанавливаем время последнего переподключения в реестр
-            self.configuration.settings.logger.info(f'Проброс порта {listener.get_port()} на {self.configuration.host} '
-                                                    f'к локальному порту {LOCAL_VNC_PORT}')
+            self.configuration.settings.logger.info(
+                f'Проброс порта {listener.get_port()} на {self.configuration.host} к локальному порту {LOCAL_VNC_PORT}'
+            )
 
             # check_reconnect_task = asyncio.create_task(self._check_reconnect_time(),
             #                                            name='check_reconnect_task')
@@ -1069,35 +1072,12 @@ class SSHConnection:
 
     # Получает с сервера данные для проброса порта (возвращает и сохраняет connection_dict)
     def get_data_for_port_forward(self) -> dict:
-        # Словарь инициализации client
-        init_dict = {
-            GROUP_KEY: self.configuration.group,
-            PHARMACY_KEY: self.configuration.pharmacy_or_subgroup,
-            DEVICE_KEY: self.configuration.device_or_name,
-            APP_VERSION_KEY: APP_VERSION
-        }
+        init_dict = self.configuration.get_initialization_dict()
+        url = 'http://' + self.configuration.host + GET_PORT_PAGE
+        response = requests.post(url, json=init_dict)
+        response_data = json.loads(response.text)
 
-        hello_dict = self.get_hello_dict(PORT_MODE, init_dict)  # Получаем словарь приветствия с init_dict
-
-        sock = self.get_tcp_socket()  # Получаем TCP сокет
-        port_conn = random.choice(PORT_LIST)  # Получаем случайный порт из списка
-
-        try:
-            sock.connect((self.configuration.host, port_conn))  # Подключение к серверу
-        except (ConnectionRefusedError, ConnectionResetError):
-            self.configuration.settings.logger.error(
-                f'Подлючение к серверу {self.configuration.host} по порту {port_conn} '
-                f'было сброшенно со стороны сервера')
-
-            raise ConnectionToPortDaemonError  # Вызываем для перехвата сверху
-
-        self.configuration.settings.logger.info(f'Произведено подключение к серверу {self.configuration.host} '
-                                                f'по порту {port_conn}')  # Пишем лог
-        timeout = random.randint(15, 25)  # Таймаут в очереди от 15 до 25 секунд (чтоб не DDOS-ить)
-        sock.settimeout(timeout)  # Ставим таймаут в очереди
-
-        sock.send(hello_dict.encode())  # Отправка словаря приветсвия на сервер
-        self.connect_dict = self.get_data_from_socket(sock)  # Получаем словарь подключения
+        self.connect_dict = response_data  # Получаем словарь подключения
 
         self.remote_port = int(self.connect_dict[PORT_KEY])  # Выделенный порт (str!)
         self.ssh_port = self.connect_dict[SSH_PORT_KEY]  # Порт SSH
@@ -1105,8 +1085,11 @@ class SSHConnection:
         self.ssh_password = self.connect_dict[PASSWORD_KEY]  # Пароль
         self.check_bd_write_demon_port = self.connect_dict[CHECK_BD_WRITE_KEY]  # Порт демона check_bd
 
-        sock.close()  # Закрываем сокет
-        return self.connect_dict  # Не имеет смысла, но пусть будет
+        self.configuration.settings.logger.info(
+            'С сервера получен порт для подключения: ' + str(self.remote_port)
+        )
+
+        return self.connect_dict
 
     # Запускает основной цикл программы
     def start_ssh_connection(self):
@@ -1117,7 +1100,6 @@ class SSHConnection:
 
         self.loop = asyncio.new_event_loop()  # Создаём цикл
         asyncio.set_event_loop(self.loop)
-        # TODO Либо оставить get_event_loop, либо добавить set_event_loop
 
         try:
             self.loop.run_until_complete(self._ssh_connection())  # Запускаем

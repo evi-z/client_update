@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 # Low-level значения
-APP_VERSION = '1.4.1'  # Версия программы
+APP_VERSION = '1.4.5'  # Версия программы
 DEFAULT_HOST = '78.37.67.153'  # Предустановленный адрес сервера
 ENCODING_APP = 'utf8'  # Кодировка программы
 
@@ -59,6 +59,8 @@ PORT_DEMON_ONE_PORT = 14421
 PORT_DEMON_TWO_PORT = 14422
 PORT_DEMON_THREE_PORT = 14423
 PORT_DEMON_FOUR_PORT = 14424
+
+GET_PORT_PAGE = '/vnc_client_ports/'
 
 # Порты демонов port_demon
 # PORT_DEMON_ONE_PORT = 14491
@@ -216,5 +218,9 @@ MINUTES_BEFORE_CHECK_TVNS_SERVICE = 1 * 60  # Колличество минут 
 MINUTES_BEFORE_CHECK_LOADER = 30 * 60  # Колличество минут между проверками новых обновлений
 
 SECONDS_FROM_LAST_APP_REBOOT = 6 * 60 * 60  # Кол-во секунд, допустимое с последнего перезапуска программы
+
+MESSAGE_NOT_INSTALL_PIP = \
+    'Запуск программы невозможен из-за некорректной установки Python - отсутсвует менеджер пакетов pip.\n' \
+    'Преустановите Python c предварительной установкой Visual C++ Redistributable for Visual Studio 2015'
 
 

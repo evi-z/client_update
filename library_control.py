@@ -1,11 +1,26 @@
 import logging
 import time
-from subprocess import run, Popen, DEVNULL, PIPE
+from subprocess import run, Popen, DEVNULL, PIPE, CalledProcessError, check_call
 import sys
 import json
 import importlib
+from threading import Thread
+import ctypes
 
 from bin.values import *
+
+
+MB_SYSTEMMODAL = 0x00001000
+MSBOX_INFORMATION = 0x00000040
+
+
+def _show_msbox(text: str, style: hex = MSBOX_INFORMATION, *, top: bool = True, title: str = 'Nevis VNClient'):
+    if top:  # Поверх всех окон
+        style += MB_SYSTEMMODAL
+
+    Thread(
+        target=lambda: ctypes.windll.user32.MessageBoxW(0, text, title, style)
+    ).start()
 
 
 # Контролирует корректность загрузки библиотек
@@ -42,10 +57,25 @@ class LibraryControl:
         return fh  # Возвращаем настроенный логгер
 
     # Получает и возвращает актуальный список аптек
-    @staticmethod
-    def get_all_install_library():
+    def get_all_install_library(self):
+        try:
+            _ = check_call(
+                [sys.executable, '-m', 'pip', '--version'], stderr=DEVNULL, stdout=DEVNULL, stdin=DEVNULL
+            )
+        except CalledProcessError:
+            self.logger.critical(MESSAGE_NOT_INSTALL_PIP)
+            _show_msbox(MESSAGE_NOT_INSTALL_PIP)
+            sys.exit(1)
+
         res = run([sys.executable, '-m', 'pip', 'list', '--format=json'], stderr=PIPE, stdout=PIPE, stdin=PIPE)
-        lib_list = json.loads(res.stdout.decode())  # Загружаем из JSON
+        stdout = res.stdout.decode().strip()
+
+        try:  # Я не уверен
+            lib_list = json.loads(stdout)  # Загружаем из JSON
+        except Exception:
+            sp = stdout.split('\r\n')
+            stdout = sp[0]
+            lib_list = json.loads(stdout)  # Загружаем из JSON
 
         return lib_list
 

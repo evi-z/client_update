@@ -81,9 +81,14 @@ while True:
             configuration_obj=configuration,
             tvnc_obj=tvnc_obj
         )  # Создаём объект подключения
-        connection.get_data_for_port_forward()  # Получаем с сервера данные для проброса порта
-        connection.start_ssh_connection()  # Запускаем цикл соединения
+        try:
+            connection.get_data_for_port_forward()  # Получаем с сервера данные для проброса порта
+        except Exception:
+            configuration.settings.logger.error('Ошибка при получении данных для проброса порта', exc_info=True)
+            time.sleep(random.randint(3, 6))
+            continue
 
+        connection.start_ssh_connection()  # Запускаем цикл соединения
         settings.logger.warning('Цикл выполнения был прерван, производится перезапуск')
 
     except asyncssh.misc.ChannelListenError:
