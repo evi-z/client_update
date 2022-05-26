@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 # Low-level значения
-APP_VERSION = '1.4.5'  # Версия программы
+APP_VERSION = '1.4.6'  # Версия программы
 DEFAULT_HOST = '78.37.67.153'  # Предустановленный адрес сервера
 ENCODING_APP = 'utf8'  # Кодировка программы
 
@@ -52,7 +52,6 @@ SSH_PORT_KEY = 'ssh_port'
 USER_KEY = 'user'
 PASSWORD_KEY = 'password'
 SERVER_KEY = 'server'
-CHECK_BD_WRITE_KEY = 'check_bd_write_demon'
 
 # # Порты демонов port_demon  TODO Устаревшие
 PORT_DEMON_ONE_PORT = 14421
@@ -61,6 +60,7 @@ PORT_DEMON_THREE_PORT = 14423
 PORT_DEMON_FOUR_PORT = 14424
 
 GET_PORT_PAGE = '/vnc_client_ports/'
+CHECK_DB_PAGE = '/vnc_client_check_db/'
 
 # Порты демонов port_demon
 # PORT_DEMON_ONE_PORT = 14491

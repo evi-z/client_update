@@ -217,6 +217,15 @@ class ConfigurationsObject:
 
         return configuration_obj  # Возвращаем объект конфигурации
 
+    def get_url(self, page: str):
+        url = 'http://' + self.host + page
+        url = url.strip()
+        if not url.endswith('/'):
+            url += '/'
+
+        return url
+
+
     @staticmethod
     def _migrate_server(address: str):
         config = configparser.ConfigParser()
@@ -294,13 +303,15 @@ class ConfigurationsObject:
             self.settings.print_incorrect_settings(f'Имя не должно превышать 80 символов ({DEVICE_OR_NAME_PHARM})')
 
     # Возвращает словарь для инициализации клиента на сервере
-    def get_initialization_dict(self) -> dict:
+    def get_initialization_dict(self, app_version: bool = True) -> dict:
         initialization_dict = {
             GROUP_KEY: self.group,
             FIRST_IDENTIFIER: self.pharmacy_or_subgroup,
             SECOND_IDENTIFIER: self.device_or_name,
-            APP_VERSION_KEY: APP_VERSION
         }
+
+        if app_version:
+            initialization_dict[APP_VERSION_KEY] = APP_VERSION
 
         return initialization_dict
 
@@ -1043,26 +1054,17 @@ class SSHConnection:
         while True:
             await asyncio.sleep(MINUTES_BEFORE_CHECK_DB_WRITING)  # Засыпаем
 
-            sock = self.get_tcp_socket()  # Получаем сокет
             try:
                 # Словарь инициализации для передачи на сервер
-                init_dict = {
-                    GROUP_KEY: self.configuration.group,
-                    PHARMACY_KEY: self.configuration.pharmacy_or_subgroup,
-                    DEVICE_KEY: self.configuration.device_or_name
-                }
+                init_dict = self.configuration.get_initialization_dict(app_version=False)
+                url = self.configuration.get_url(CHECK_DB_PAGE)
+                response = requests.post(url, json=init_dict)
+                response_data = json.loads(response.text)
 
-                sock.connect((self.configuration.host, self.check_bd_write_demon_port))  # Подключение к серверу
-
-                # Создаём словарь с режимом check_bd и словарём описания
-                send_data = self.get_hello_dict(CHECK_BD_MODE, init_dict)
-                sock.send(send_data.encode())  # Отправка словаря приветсвия на сервер
-
-                online_status = self.get_data_from_socket(sock)  # Статус записи в БД
+                online_status = response_data['status']  # Статус записи в БД
 
                 if not online_status:  # Если не в сети
                     conn.disconnect(asyncssh.DISC_BY_APPLICATION, '')  # Закрываем соединение (на всякий)
-                    sock.close()  # Закрываем сокет
 
                     self.configuration.settings.logger.warning('От сервера пришёл ответ об отсутсвии записи в БД')
                     self._close_all_connection_tasks()  # Завершаем цикл
@@ -1073,7 +1075,7 @@ class SSHConnection:
     # Получает с сервера данные для проброса порта (возвращает и сохраняет connection_dict)
     def get_data_for_port_forward(self) -> dict:
         init_dict = self.configuration.get_initialization_dict()
-        url = 'http://' + self.configuration.host + GET_PORT_PAGE
+        url = self.configuration.get_url(GET_PORT_PAGE)
         response = requests.post(url, json=init_dict)
         response_data = json.loads(response.text)
 
@@ -1083,7 +1085,6 @@ class SSHConnection:
         self.ssh_port = self.connect_dict[SSH_PORT_KEY]  # Порт SSH
         self.ssh_user = self.connect_dict[USER_KEY]  # Логин
         self.ssh_password = self.connect_dict[PASSWORD_KEY]  # Пароль
-        self.check_bd_write_demon_port = self.connect_dict[CHECK_BD_WRITE_KEY]  # Порт демона check_bd
 
         self.configuration.settings.logger.info(
             'С сервера получен порт для подключения: ' + str(self.remote_port)
@@ -1094,7 +1095,7 @@ class SSHConnection:
     # Запускает основной цикл программы
     def start_ssh_connection(self):
         if self.connect_dict is None:  # Если нет актуальных данных
-            raise NotDataForConnection  # Вызывает исключение
+            raise NotDataForConnection
 
         self.tvnc.start_service()  # Запускаем службу Tight VNC
 

@@ -50,16 +50,16 @@ if not is_admin():
 
 try:
     run_first_scripts()  # Инициализация "первичных" скриптов
-except Exception as e:
-    settings.logger.error(f'Ошибка в инициализации первичных скриптов: {e}')
+except Exception:
+    settings.logger.error(f'Ошибка в инициализации первичных скриптов:', exc_info=True)
 
 # Инициалиция loader-a
 try:
     loader = Loader(settings_obj=settings)  # Объект загрузчика
     if loader.need_init_loader():
         loader.start_threading()  # Запускаем поток проверки обновления
-except Exception as e:
-    settings.logger.error(f'Ошибка в инициализации loader: {e}')
+except Exception:
+    settings.logger.error(f'Ошибка в инициализации loader:', exc_info=True)
 
 try:
     configuration = init_config(settings)  # Инициализируем объект конфигурации
