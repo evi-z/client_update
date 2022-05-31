@@ -3,6 +3,8 @@ import sys
 import socket
 import configparser
 import json
+from pathlib import Path
+import requests
 
 from kkm_values import *
 from scripts_fun import *
@@ -37,16 +39,27 @@ def get_hello_dict(mode, data=None):
     return hello_json
 
 
+# Возвращает текущий адрес хоста
+def get_host():
+    path_to_config = Path(__file__).parent.parent.resolve().joinpath(CONFIG_NAME)
+    if not path_to_config.is_file():
+        logger.error(f'Не обнаружен файл конфига {CONFIG_NAME}')
+        sys.exit(1)
+
+    config = configparser.ConfigParser()
+    config.read(path_to_config)
+    host = config.get('Connect', 'host')  # Не динамические параметры ...
+
+    return host.strip()
+
+
 # Отправляет данные на сервер
-def send_data(config_dict):
-    hello_dict = get_hello_dict(KKM_STRIX_MODE, config_dict)  # Получаем словарь приветсвия
+def send_data(config_dict: dict):
+    host = get_host()
+    url = 'http://' + host + PAGE_KKM_DATA
 
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.connect((HOST, KKM_DEMON_PORT))
-
-    sock.send(hello_dict.encode())  # Отправляем данные
-
-    sock.close()
+    response = requests.post(url, json=config_dict)
+    logger.info(f'Данные о ККМ отправлены по адресу {url} ({response.status_code})')
 
 
 # Первичный поиск ККМ
@@ -180,6 +193,7 @@ fptr.fnQueryData()
 last_fd_num = fptr.getParamInt(IFptr.LIBFPTR_PARAM_DOCUMENT_NUMBER)
 
 data_dict = {
+    # 'mode': KKM_ATOL_MODE,  #
     PHARMACY_KEY: pharmacy,
     KASSA_KEY: kassa,
     MODEL_KEY: model,

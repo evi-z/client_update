@@ -9,15 +9,18 @@ import urllib.parse
 from kkm_values import *
 from scripts_fun import *
 from subprocess import run, PIPE
+import configparser
+from pathlib import Path
 
 logger = get_logger(__name__)  # Инициализируем logger
 
 INSTALLER_LIBRARY_MODULE_NAME = 'installer_libary.py'
 
 
-for i in range(2):  # 2 попытки
+for i in range(2):  # 2 попытки (БОЖЕ, ЭТО ЖЕСТЬ, Я ПИСАЛ ЭТО ДАВНО)
     try:  # Пытаемся импортировать модуль
         import pyshtrih
+        import requests
 
         break
     except ModuleNotFoundError:  # Если нет
@@ -26,26 +29,36 @@ for i in range(2):  # 2 попытки
         run([sys.executable, os.path.join(os.getcwd(), INSTALLER_LIBRARY_MODULE_NAME), 'pyshtrih'])
 
 
-# Создаёт словарь приветствия и кодирует в JSON
-def get_hello_dict(mode, data=None):
-    hello_dict = {MODE_DICT_KEY: mode,
-                  DATA_DICT_KEY: data}
+# # Создаёт словарь приветствия и кодирует в JSON [УСТАРЕЛО]
+# def get_hello_dict(mode, data=None):
+#     hello_dict = {MODE_DICT_KEY: mode,
+#                   DATA_DICT_KEY: data}
+#
+#     hello_json = json.dumps(hello_dict) + EOF  # Кодируем в JSON с EOF
+#
+#     return hello_json
 
-    hello_json = json.dumps(hello_dict) + EOF  # Кодируем в JSON с EOF
+# Возвращает текущий адрес хоста
+def get_host():
+    path_to_config = Path(__file__).parent.parent.resolve().joinpath(CONFIG_NAME)
+    if not path_to_config.is_file():
+        logger.error(f'Не обнаружен файл конфига {CONFIG_NAME}')
+        sys.exit(1)
 
-    return hello_json
+    config = configparser.ConfigParser()
+    config.read(path_to_config)
+    host = config.get('Connect', 'host')  # Не динамические параметры ...
+
+    return host.strip()
 
 
 # Отправляет данные на сервер
-def send_data(config_dict):
-    hello_dict = get_hello_dict(KKM_STRIX_MODE, config_dict)  # Получаем словарь приветсвия
+def send_data(config_dict: dict):
+    host = get_host()
+    url = 'http://' + host + PAGE_KKM_DATA
 
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.connect((HOST, KKM_DEMON_PORT))
-
-    sock.send(hello_dict.encode())  # Отправляем данные
-
-    sock.close()
+    response = requests.post(url, json=config_dict)
+    logger.info(f'Данные о ККМ отправлены по адресу {url} ({response.status_code})')
 
 
 # Возвращает список аргументов коммандной строки
@@ -65,46 +78,46 @@ def get_first_connection():
     return devices
 
 
-def check_papper() -> bool:
-    try:
-        with open('papper_', 'r') as _:
-            pass
-        return True
-    except FileNotFoundError:
-        return False
+# def check_papper() -> bool:
+#     try:
+#         with open('papper_', 'r') as _:
+#             pass
+#         return True
+#     except FileNotFoundError:
+#         return False
 
 
-# Устанавливает настройки кассовой ленты
-def set_papper_settings(device_, pharmacy, kassa):
-    device_.write_table(1, 1, 29, 0, int)  # Межстрочный интервал
-    device_.write_table(1, 1, 31, 1, int)  # Сжатие шрифта на чековой ленте
-    device_.write_table(17, 1, 18, 6, int)  # Rus, компактный заголовок
-    device_.write_table(17, 1, 41, 1, int)  # Принимать все КТ
-
-    import urllib
-    import urllib.request
-    # url = 'http://85.143.156.89/papper_send/'
-    url = 'http://78.37.67.149/papper_send/'
-    values = {
-        'pharmacy': pharmacy,
-        'kassa': kassa,
-        'with_kt': True
-    }
-
-    data = urllib.parse.urlencode(values).encode('utf-8')
-    req = urllib.request.Request(url, data)
-    with urllib.request.urlopen(req) as response:
-        _ = response.read()
-
-    with open('papper_', 'w') as _:  # Ну правда надо было быстро
-        pass
-
-    try:  # Ох
-        os.remove('papper')
-    except Exception:
-        pass
-
-    logger.info('Настройка кассовой ленты завершена!')
+# # Устанавливает настройки кассовой ленты
+# def set_papper_settings(device_, pharmacy, kassa):
+#     device_.write_table(1, 1, 29, 0, int)  # Межстрочный интервал
+#     device_.write_table(1, 1, 31, 1, int)  # Сжатие шрифта на чековой ленте
+#     device_.write_table(17, 1, 18, 6, int)  # Rus, компактный заголовок
+#     device_.write_table(17, 1, 41, 1, int)  # Принимать все КТ
+#
+#     import urllib
+#     import urllib.request
+#     # url = 'http://85.143.156.89/papper_send/'
+#     url = 'http://78.37.67.153/papper_send/'
+#     values = {
+#         'pharmacy': pharmacy,
+#         'kassa': kassa,
+#         'with_kt': True
+#     }
+#
+#     data = urllib.parse.urlencode(values).encode('utf-8')
+#     req = urllib.request.Request(url, data)
+#     with urllib.request.urlopen(req) as response:
+#         _ = response.read()
+#
+#     with open('papper_', 'w') as _:  # Ну правда надо было быстро
+#         pass
+#
+#     try:  # Ох
+#         os.remove('papper')
+#     except Exception:
+#         pass
+#
+#     logger.info('Настройка кассовой ленты завершена!')
 
 
 # Получаем список аргументов коммандной строки
@@ -152,11 +165,11 @@ logger.info(f'Скрипт {get_basename(__file__)} обнаружил ККМ и
 
 device.connect()  # Коннектим к ККМ
 
-if not check_papper():
-    try:  # Настройка кассовой ленты
-        set_papper_settings(device, pharmacy, kassa)
-    except Exception:
-        logger.error('Не удалось выполнить настройку кассовой ленты', exc_info=True)
+# if not check_papper():  TODO Устарело, меняли ширину ленты
+#     try:  # Настройка кассовой ленты
+#         set_papper_settings(device, pharmacy, kassa)
+#     except Exception:
+#         logger.error('Не удалось выполнить настройку кассовой ленты', exc_info=True)
 
 # Константы таблицы
 TABLE_FISCAL_STORAGE_NUMBER = 18  # Номер таблицы Fiscal Storage
@@ -188,6 +201,7 @@ device.disconnect()  # Отключаемся от ККМ
 
 # Словарь данных
 data_dict = {
+    # 'mode': KKM_STRIX_MODE,
     PHARMACY_KEY: pharmacy,
     KASSA_KEY: kassa,
     MODEL_KEY: model['Название устройства'],
@@ -205,5 +219,5 @@ data_dict = {
 
 try:
     send_data(data_dict)  # Отправляем данные на сервер
-except (ConnectionRefusedError, ConnectionResetError):
+except Exception:
     logger.error(f'Скрипт {get_basename(__file__)} не смог отправить данные на север')

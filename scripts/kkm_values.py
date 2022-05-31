@@ -1,7 +1,8 @@
-# Данные с сервера TODO Причем здоровенный
-# HOST = '85.143.156.89'
-HOST = '78.37.67.149'
+# Данные с сервера
+# HOST = '78.37.67.153'  [УСТАРЕЛО]
 KKM_DEMON_PORT = 11718
+PAGE_KKM_DATA = '/vnc_client_kkm/'
+CONFIG_NAME = 'settings.ini'
 
 # Ключи словаря приветствия
 MODE_DICT_KEY = 'mode'
