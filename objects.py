@@ -159,7 +159,6 @@ class SettingsObject:
         else:
             return False
 
-
 # Объект конфигурации
 class ConfigurationsObject:
     def __init__(self, *, group, pharmacy_or_subgroup, device_or_name, host, settings: SettingsObject):
@@ -704,9 +703,6 @@ class DiskUsageScript(SecondaryScripts):
     # Возвращает булево, необходимо ли выполнить скрипт
     def need_init_script(self):
         if self.configuration.group != GROUP_PHARMACY_INT:  # Если устройсто не Аптека
-            return False
-
-        if self.configuration.device_or_name not in KASSA_DICT.values():  # Если устройство не в списке необходимых
             return False
 
         return True  # В остальных случаях

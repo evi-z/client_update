@@ -10,39 +10,48 @@ from os import path
 from pathlib import Path
 import glob
 
+import requests
+
 from scripts_fun import *
 
-# TODO Здоровенный
-# HOST = '85.143.156.89'
-HOST = '78.37.67.149'
-CONFIGURATION_DEMON_PORT = 11617
-DISK_USAGE_MODE = 'disk_usage'
+PAGE_DISK_USAGE_DATA = '/vnc_disk_usage/'
 
 logger = get_logger(__name__)  # Инициализируем logger
 
 
-# Создаёт словарь приветствия и кодирует в JSON
-def get_hello_dict(mode, data=None):
-    hello_dict = {MODE_DICT_KEY: mode,
-                  DATA_DICT_KEY: data}
+# # Создаёт словарь приветствия и кодирует в JSON
+# def get_hello_dict(mode, data=None):
+#     hello_dict = {MODE_DICT_KEY: mode,
+#                   DATA_DICT_KEY: data}
+#
+#     hello_json = json.dumps(hello_dict) + EOF  # Кодируем в JSON с EOF
+#
+#     return hello_json
+#
+#
+# Отправляет данные на сервер
 
-    hello_json = json.dumps(hello_dict) + EOF  # Кодируем в JSON с EOF
+# Возвращает текущий адрес хоста
+def get_host():
+    path_to_config = Path(__file__).parent.parent.resolve().joinpath(CONFIG_NAME)
+    if not path_to_config.is_file():
+        logger.error(f'Не обнаружен файл конфига {CONFIG_NAME}')
+        sys.exit(1)
 
-    return hello_json
+    config = configparser.ConfigParser()
+    config.read(path_to_config)
+    host = config.get('Connect', 'host')  # Не динамические параметры ...
+
+    return host.strip()
 
 
 # Отправляет данные на сервер
-def send_configuration_data(config_dict):
-    hello_dict = get_hello_dict(DISK_USAGE_MODE, config_dict)
+def send_data(config_dict: dict):
+    host = get_host()
+    url = 'http://' + host + PAGE_DISK_USAGE_DATA
 
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    try:
-        sock.connect((HOST, CONFIGURATION_DEMON_PORT))
-        sock.send(hello_dict.encode())
-    except Exception:  # TODO
-        pass
-
-    sock.close()
+    response = requests.post(url, json=config_dict)
+    logger.info(f'Данные о дисках и бекапах отправлены по адресу {url} ({response.status_code})')
 
 
 # Преобразует байты в гигабайты
@@ -130,60 +139,68 @@ def check_sql_db_size():
     return _base_size
 
 
-arg = get_argv_list(sys.argv)
+def main():
+    arg = get_argv_list(sys.argv)
 
-pharmacy = arg[0]
-device = arg[1]
+    pharmacy = arg[0]
+    device = arg[1]
 
-logger.info(f'Скрипт {get_basename(__file__)} начал работу')
+    logger.info(f'Скрипт {get_basename(__file__)} начал работу')
 
-# Ключи словаря конфигурации
-PHARMACY_DICT_KEY = 'pharmacy'
-DEVICE_DICT_KEY = 'device'
-BASE_SIZE_KEY = 'base_size'
-BASE_SIZE_NEW_KEY = 'base_size_dict'
+    # Ключи словаря конфигурации
+    PHARMACY_DICT_KEY = 'pharmacy'
+    DEVICE_DICT_KEY = 'device'
+    BASE_SIZE_KEY = 'base_size'
+    BASE_SIZE_NEW_KEY = 'base_size_dict'
 
-TOM_DICT_KEY = 'tom_data'
-TOM_TOTAL_SIZE_KEY = 'total'
-TOM_FREE_SIZE_KEY = 'free'
-TOM_PERCENT_KEY = 'percent'
+    TOM_DICT_KEY = 'tom_data'
+    TOM_TOTAL_SIZE_KEY = 'total'
+    TOM_FREE_SIZE_KEY = 'free'
+    TOM_PERCENT_KEY = 'percent'
 
-PATH_FROM_BASE = 'С:\\retail'  # Путь к БД
-C_DRIVE = 'C:\\'
+    PATH_FROM_BASE = 'С:\\retail'  # Путь к БД
+    C_DRIVE = 'C:\\'
 
-tom_dict = {}  # Данные о дисках
-for tom in psutil.disk_partitions():  # Проходим по диску
-    tom_name = tom.device  # Имя диска
+    tom_dict = {}  # Данные о дисках
+    for tom in psutil.disk_partitions():  # Проходим по диску
+        tom_name = tom.device  # Имя диска
+        try:
+            usage = psutil.disk_usage(tom_name)  # Статистика диска
+        except OSError:  # Не системный диск
+            continue
+
+        friendly_name = tom_name.split('\\')[0]  # Экранируем бэкслеши
+        tom_dict[friendly_name] = {
+            TOM_TOTAL_SIZE_KEY: int(bytes_to_gb(usage.total)),  # Общая память
+            TOM_FREE_SIZE_KEY: int(bytes_to_gb(usage.free)),  # Свободная память
+            TOM_PERCENT_KEY: usage.percent  # Процент занятого места
+        }
+
+    base_size = None  # Заглушка
     try:
-        usage = psutil.disk_usage(tom_name)  # Статистика диска
-    except OSError:  # Не системный диск
-        continue
+        if int(device) in (1, 99):  # Если 1 касса или сервер [ФАЙЛОВАЯ БАЗА]
+            base_size = check_file_db_size()
 
-    friendly_name = tom_name.split('\\')[0]  # Экранируем бэкслеши
-    tom_dict[friendly_name] = {
-        TOM_TOTAL_SIZE_KEY: int(bytes_to_gb(usage.total)),  # Общая память
-        TOM_FREE_SIZE_KEY: int(bytes_to_gb(usage.free)),  # Свободная память
-        TOM_PERCENT_KEY: usage.percent  # Процент занятого места
+        if int(device) == 99 and base_size is None:  # Если сервер и размер базы неизвестен [SQL база]
+            base_size = check_sql_db_size()
+    except Exception:  # Если не будет данных о БД, пережить можно будет
+        pass
+
+    disk_usage_dict = {
+        PHARMACY_DICT_KEY: pharmacy,
+        DEVICE_DICT_KEY: device,
+        TOM_DICT_KEY: tom_dict,
+        BASE_SIZE_NEW_KEY: base_size
     }
 
-base_size = None  # Заглушка
-try:
-    if int(device) in (1, 99):  # Если 1 касса или сервер [ФАЙЛОВАЯ БАЗА]
-        base_size = check_file_db_size()
+    try:
+        send_data(disk_usage_dict)  # Отправляет данные на сервер
+    except (ConnectionRefusedError, ConnectionResetError):
+        logger.error(f'Скрипт {get_basename(__file__)} не смог отправить данные на север')
 
-    if int(device) == 99 and base_size is None:  # Если сервер и размер базы неизвестен [SQL база]
-        base_size = check_sql_db_size()
-except Exception:  # Если не будет данных о БД, пережить можно будет
-    pass
 
-disk_usage_dict = {
-    PHARMACY_DICT_KEY: pharmacy,
-    DEVICE_DICT_KEY: device,
-    TOM_DICT_KEY: tom_dict,
-    BASE_SIZE_NEW_KEY: base_size
-}
-
-try:
-    send_configuration_data(disk_usage_dict)  # Отправляет данные на сервер
-except (ConnectionRefusedError, ConnectionResetError):
-    logger.error(f'Скрипт {get_basename(__file__)} не смог отправить данные на север')
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        logger.error(f'В скрипте {get_basename(__file__)} произошла необрабатываемая ошибка', exc_info=True)
