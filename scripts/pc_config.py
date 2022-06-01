@@ -1,6 +1,7 @@
 import os
 import platform
 import sys
+from pathlib import Path
 
 import cpuinfo
 import psutil
@@ -8,6 +9,8 @@ import ctypes
 import socket
 import json
 from subprocess import run, PIPE
+
+import requests
 
 from scripts_fun import *
 
@@ -20,12 +23,8 @@ DATA_DICT_KEY = 'data'
 
 EOF = '#'
 
-# TODO Здоровенный
-# HOST = '85.143.156.89'
-HOST = '78.37.67.149'
-CONFIGURATION_DEMON_PORT = 11617
 
-CONFIGURATION_MODE = 'configuration'
+PAGE_DISK_USAGE_DATA = '/vnc_monitoring/'
 
 
 # Удаляет все пустые элементыв списке
@@ -88,25 +87,27 @@ def ps_inp_disk_data_to_list(str_out):
     return tupl_list_out
 
 
-# Создаёт словарь приветствия и кодирует в JSON
-def get_hello_dict(mode, data=None):
-    hello_dict = {MODE_DICT_KEY: mode,
-                  DATA_DICT_KEY: data}
+# Возвращает текущий адрес хоста
+def get_host():
+    path_to_config = Path(__file__).parent.parent.resolve().joinpath(CONFIG_NAME)
+    if not path_to_config.is_file():
+        logger.error(f'Не обнаружен файл конфига {CONFIG_NAME}')
+        sys.exit(1)
 
-    hello_json = json.dumps(hello_dict) + EOF  # Кодируем в JSON с EOF
+    config = configparser.ConfigParser()
+    config.read(path_to_config)
+    host = config.get('Connect', 'host')  # Не динамические параметры ...
 
-    return hello_json
+    return host.strip()
 
 
-def send_configuration_data(config_dict):
-    hello_dict = get_hello_dict(CONFIGURATION_MODE, config_dict)
+# Отправляет данные на сервер
+def send_data(config_dict: dict):
+    host = get_host()
+    url = 'http://' + host + PAGE_DISK_USAGE_DATA
 
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.connect((HOST, CONFIGURATION_DEMON_PORT))
-
-    sock.send(hello_dict.encode())
-
-    sock.close()
+    response = requests.post(url, json=config_dict)
+    logger.info(f'Данные о мониторинге отправлены по адресу {url} ({response.status_code})')
 
 
 # Возвращает список аргументов коммандной строки
@@ -141,71 +142,80 @@ PLATFORM_DICT_KEY = 'platform'
 CPU_DICT_KEY = 'cpu'
 PC_NAME = 'pc_name'
 
-#  ОЗУ и Диски
-ram = psutil.virtual_memory().total  # Оперативная память (Байты)
-swap = psutil.swap_memory().total  # Файл подкачки
 
+def main():
+    #  ОЗУ и Диски
+    ram = psutil.virtual_memory().total  # Оперативная память (Байты)
+    swap = psutil.swap_memory().total  # Файл подкачки
 
-ram = round(bytes_to_gb(ram))
-swap = round(bytes_to_gb(swap))
+    ram = round(bytes_to_gb(ram))
+    swap = round(bytes_to_gb(swap))
 
-# Тип ОЗУ
-# command = 'PowerShell "Get-WmiObject Win32_PhysicalMemory | fl MemoryType, SMBIOSMemoryType'
-command = 'PowerShell "Get-WmiObject Win32_PhysicalMemory | fl SMBIOSMemoryType'
-res = run(command, shell=True, stdout=PIPE, stdin=PIPE, stderr=PIPE)
+    # Тип ОЗУ
+    # command = 'PowerShell "Get-WmiObject Win32_PhysicalMemory | fl MemoryType, SMBIOSMemoryType'
+    command = 'PowerShell "Get-WmiObject Win32_PhysicalMemory | fl SMBIOSMemoryType'
+    res = run(command, shell=True, stdout=PIPE, stdin=PIPE, stderr=PIPE)
 
-ram_type = res.stdout.decode()
-ram_type = ps_inp_ram_type_to_list(ram_type)
+    ram_type = res.stdout.decode()
+    ram_type = ps_inp_ram_type_to_list(ram_type)
 
-# Память со всех томов
-memory = 0
-for disk in psutil.disk_partitions():
-    disk_name = disk.device
+    # Память со всех томов
+    memory = 0
+    for disk in psutil.disk_partitions():
+        disk_name = disk.device
+        try:
+            memory += psutil.disk_usage(disk_name).total
+        except OSError:
+            pass
+
+    memory = round(bytes_to_gb(memory))
+
+    # Тип логических дисков и их размеры
+    command = 'PowerShell "Get-PhysicalDisk | fl -Property MediaType, Size, FriendlyName"'
+    res = run(command, shell=True, stdout=PIPE, stdin=PIPE, stderr=PIPE)
+
+    disk_data = res.stdout.decode()
+    disk_data = ps_inp_disk_data_to_list(disk_data)
+
+    # Разрешение экрана
+    horizontal = ctypes.windll.user32.GetSystemMetrics(0)
+    vertical = ctypes.windll.user32.GetSystemMetrics(1)
+    screen_resolution = f'{horizontal}x{vertical}'
+
+    # Платформа
+    platform_ver = platform.win32_ver()
+
+    # Процессор
+    try:  # Какая-то ошибка?
+        cpu = cpuinfo.get_cpu_info()['brand_raw']
+    except KeyError:
+        cpu = 'Unknown'
+
+    pc_name = platform.node()  # Имя компьютера
+
+    configuration_dict = {
+        PHARMACY_DICT_KEY: pharmacy,
+        DEVICE_DICT_KEY: device,
+        RAM_DICT_KEY: ram,
+        RAM_TYPE_DICT_KEY: ram_type,
+        SWAP_DICT_KEY: swap,
+        MEMORY_DICT_KEY: memory,
+        DISK_DATA_DICT_KEY: disk_data,
+        SCREEN_RESOLUTION_DICT_KEY: screen_resolution,
+        PLATFORM_DICT_KEY: platform_ver,
+        CPU_DICT_KEY: cpu,
+        PC_NAME: pc_name
+    }
+
     try:
-        memory += psutil.disk_usage(disk_name).total
-    except OSError:
-        pass
+        send_data(configuration_dict)  # Отправляет данные на сервер
+    except Exception:
+        logger.error(f'Скрипт {get_basename(__file__)} не смог отправить данные на север')
 
-memory = round(bytes_to_gb(memory))
 
-# Тип логических дисков и их размеры
-command = 'PowerShell "Get-PhysicalDisk | fl -Property MediaType, Size, FriendlyName"'
-res = run(command, shell=True, stdout=PIPE, stdin=PIPE, stderr=PIPE)
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        logger.error('Monitoring завершился с ошибкой', exc_info=True)
 
-disk_data = res.stdout.decode()
-disk_data = ps_inp_disk_data_to_list(disk_data)
-
-# Разрешение экрана
-horizontal = ctypes.windll.user32.GetSystemMetrics(0)
-vertical = ctypes.windll.user32.GetSystemMetrics(1)
-screen_resolution = f'{horizontal}x{vertical}'
-
-# Платформа
-platform_ver = platform.win32_ver()
-
-# Процессор
-try:  # Какая-то ошибка?
-    cpu = cpuinfo.get_cpu_info()['brand_raw']
-except KeyError:
-    cpu = 'Unknown'
-
-pc_name = platform.node()  # Имя компьютера
-
-configuration_dict = {
-    PHARMACY_DICT_KEY: pharmacy,
-    DEVICE_DICT_KEY: device,
-    RAM_DICT_KEY: ram,
-    RAM_TYPE_DICT_KEY: ram_type,
-    SWAP_DICT_KEY: swap,
-    MEMORY_DICT_KEY: memory,
-    DISK_DATA_DICT_KEY: disk_data,
-    SCREEN_RESOLUTION_DICT_KEY: screen_resolution,
-    PLATFORM_DICT_KEY: platform_ver,
-    CPU_DICT_KEY: cpu,
-    PC_NAME: pc_name
-}
-
-try:
-    send_configuration_data(configuration_dict)  # Отправляет данные на сервер
-except (ConnectionRefusedError, ConnectionResetError):
-    logger.error(f'Скрипт {get_basename(__file__)} не смог отправить данные на север')
