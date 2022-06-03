@@ -184,8 +184,7 @@ def create_msbox(text: str, *, title: str = 'Внимание', style: hex = MB_
 def send_data(send_dict: dict):
     import urllib
     import urllib.request
-    # url = 'http://85.143.156.89/retail_backup/'
-    url = 'http://78.37.67.149/retail_backup/'
+    url = 'http://78.37.67.153/retail_backup/'
 
     data = urllib.parse.urlencode(send_dict).encode('utf-8')
     req = urllib.request.Request(url, data)
@@ -227,6 +226,31 @@ def get_db_pc_name() -> str:
         return addr
     else:
         raise ValueError
+
+    # if 'ws' in conn_list:  # С второстепенной базы
+    #     addr = conn_list[-1]
+    #     addr = addr[addr.index('"') + 1:addr.rindex('"')]
+    #
+    #     url = urlparse(addr)
+    #     pcname = url.netloc
+    #     if pcname:
+    #         return pcname
+    #     else:
+    #         raise ValueError
+    #
+    # if 'File' in conn_list:  # С главной кассы, файловая БД
+    #     addr = conn_list[-1]
+    #     addr = addr[addr.index('"') + 1:addr.rindex('"')]
+    #     print(addr)
+    #
+    # if 'Srvr' in conn_list:
+    #     srv = conn_list[2]
+    #     bas = conn_list[-1]
+    #     srv = srv[srv.index('"') + 1:srv.rindex('"')]
+    #     bas = bas[bas.index('"') + 1:bas.rindex('"')]
+    #     addr = f'{srv}\\{bas}'
+    #
+    #     param = f'/S "{addr}"'
 
 
 def comzav():
@@ -455,11 +479,13 @@ def comzav():
         'fullsize': fullsize
     }
 
+
 def err_msgbox():
     create_msbox(
         'Во время копирования базы 1С произошла ошибка. Можете продолжать работу, хорошего дня!',
         title='Ошибка', style=MB_ICONERROR
     )
+
 
 def get_copy_time() -> int:
     try:
