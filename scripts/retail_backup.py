@@ -214,10 +214,12 @@ def get_db_pc_name() -> str:
 
         url = urlparse(addr)
         pcname = url.netloc
-        if pcname:
-            return pcname
-        else:
+        if not pcname:
             raise ValueError
+
+        pcname = pcname.split(':')[0].strip()  # Отсеиваем порт (если есть)
+
+        return pcname
 
     elif 'Srvr' in conn_list:
         addr = conn_list[2]
