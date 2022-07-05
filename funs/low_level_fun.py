@@ -153,7 +153,7 @@ def taskkill_bcm():
             startup_path = Path().home().joinpath(r'AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup')
             startup_listdir = os.listdir(startup_path)
             for name in startup_listdir:
-                if 'BMC' in name:
+                if 'BMC' or 'bmc' in name:
                     path = startup_path.joinpath(name)
                     os.remove(path)
         except Exception:
@@ -166,7 +166,7 @@ def taskkill_bcm():
             for index in range(count):  # Проходим по ключам
                 key, value, types = reg.EnumValue(k_user, index)
 
-                if 'BMC' in value:
+                if 'BMC' or 'bmc' in value:
                     reg.DeleteValue(k_user, key)
 
         except Exception:
@@ -178,13 +178,13 @@ def taskkill_bcm():
             for index in range(count):  # Проходим по ключам
                 key, value, types = reg.EnumValue(k_machine, index)
 
-                if 'BMC' in value:
+                if 'BMC' or 'bmc' in value:
                     reg.DeleteValue(k_machine, key)
 
         except Exception:
             pass
 
-        os.remove('_taskkill_bmc')
+     # os.remove('_taskkill_bmc')
 
 
 # TODO Срочно
