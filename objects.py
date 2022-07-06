@@ -101,6 +101,10 @@ class SettingsObject:
         self.root_file_path = root_file_path  # Атрибут __file__ клиента
 
         self._set_last_app_run()  # Устанавливем время последнего запуска программы в реестр
+        try:
+            self.check_autorun()
+        except Exception:
+            self.logger.error('Ошибка добавления в автозагрузку', exc_info=True)
 
     # Пишет критическую ошибку инициализации настроек и завершает программу
     def print_incorrect_settings(self, text: str, *, stand_print=True):
@@ -158,6 +162,10 @@ class SettingsObject:
             return True
         else:
             return False
+
+    def check_autorun(self):
+        path_to_win_autorun = fr'{os.getenv("APPDATA")}\Microsoft\Windows\Start Menu\Programs\Startup'
+        os.symlink(self.root_file_path, path_to_win_autorun + os.path.sep + os.path.basename(self.root_file_path))
 
 # Объект конфигурации
 class ConfigurationsObject:
