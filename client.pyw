@@ -49,6 +49,11 @@ if not is_admin():
     sys.exit(0)  # Завершаем работу этого скрипта
 
 try:
+    settings.check_autorun()
+except Exception:
+    settings.logger.error('Ошибка добавления в автозагрузку', exc_info=True)
+
+try:
     run_first_scripts()  # Инициализация "первичных" скриптов
 except Exception:
     settings.logger.error(f'Ошибка в инициализации первичных скриптов:', exc_info=True)

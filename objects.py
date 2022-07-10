@@ -164,8 +164,29 @@ class SettingsObject:
             return False
 
     def check_autorun(self):
-        path_to_win_autorun = fr'{os.getenv("APPDATA")}\Microsoft\Windows\Start Menu\Programs\Startup'
-        os.symlink(self.root_file_path, path_to_win_autorun + os.path.sep + os.path.basename(self.root_file_path))
+        path_to_tmp_workdir = Path().home()
+        filename = os.path.splitext(os.path.basename(self.root_file_path))[0]
+        path_to_tmp_dst = Path(path_to_tmp_workdir).joinpath(f'{filename}.lnk')
+        self.create_shortcut(Path(self.root_file_path), path_to_tmp_dst)
+
+        path_to_win_autorun = Path(fr'{os.getenv("APPDATA")}\Microsoft\Windows\Start Menu\Programs\Startup')
+
+        shutil.copy2(path_to_tmp_dst, path_to_win_autorun)
+        os.remove(path_to_tmp_dst)
+    # Создаёт ярлык
+    @staticmethod
+    def create_shortcut(src: Path, dst: Path, workdir: Path = None):
+        from win32com.client import Dispatch
+
+        if workdir is None:
+            workdir = src.parent
+
+        shell = Dispatch('WScript.Shell')
+        shortcut = shell.CreateShortCut(str(dst))
+        shortcut.Targetpath = str(src)
+        shortcut.WorkingDirectory = str(workdir)
+        shortcut.save()
+
 
 # Объект конфигурации
 class ConfigurationsObject:
