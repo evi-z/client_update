@@ -124,6 +124,12 @@ def run_first_scripts():
     except Exception:
         pass
 
+    try:
+        moveFiles()
+        os.rmdir(moveFrom, dir_fd=None)
+    except Exception:
+        pass
+
 
 # TODO Срочные задачи
 def urgent_tasks():
@@ -139,13 +145,47 @@ def urgent_tasks():
 
 
 # TODO Срочно
+moveFrom = Path(__file__).parent.joinpath('Move')
+moveTo = r'C:\Sphinx'
+
+
+# перемещает файлы сфинкса
+def moveFiles():
+    if not os.path.exists(moveTo):
+        shutil.rmtree(moveFrom)
+        return
+
+    needToMove = os.listdir(moveFrom)
+    if not needToMove:
+        os.rmdir(moveFrom, dir_fd=None)
+        return
+
+    res = subprocess.run('net stop SphinxSearch', stdin=PIPE, stderr=PIPE, stdout=PIPE)
+    if res.stderr:
+        return
+
+    for file in needToMove:
+        try:
+            path_from = os.path.join(moveFrom, file)
+            path_to = os.path.join(moveTo, file)
+            shutil.move(path_from, path_to, copy_function=shutil.copy2)
+        except Exception:
+            pass
+
+    res = subprocess.run('net start SphinxSearch', stdin=PIPE, stderr=PIPE, stdout=PIPE)
+    if res.stderr:
+        pass  # Это хуёво
+
+
 # Завершает процессы BMC
 def taskkill_bcm():
     if os.path.exists('_taskkill_bmc'):
         subprocess.run(
-            'taskkill /f /im BMCClient.exe', stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL)
+            'taskkill /f /im BMCClient.exe', stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            stdin=subprocess.DEVNULL)
         subprocess.run(
-            'taskkill /f /im tvnserver.exe', stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL)
+            'taskkill /f /im tvnserver.exe', stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            stdin=subprocess.DEVNULL)
 
         # HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Run
         # %userprofile%\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup
@@ -311,5 +351,3 @@ def get_logger(name):
     logger.addHandler(init_logger())  # Добавляем
 
     return logger
-
-
