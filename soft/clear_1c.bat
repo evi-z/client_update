@@ -32,3 +32,16 @@ rd /s /q "%temp%" >nul 2>&1
 
 Del C:\retail\*.cdn
 
+"C:\Program Files\1cv8\common\1cestart.exe" ENTERPRISE /S"server/retail" /N"Администратор" /P""  /C РазрешитьРаботуПользователей /UCКодРазрешения
+"C:\Program Files (x86)\1cv8\common\1cestart.exe" ENTERPRISE /S"server/retail" /N"Администратор" /P""  /C РазрешитьРаботуПользователей /UCКодРазрешения
+"C:\Program Files\1cv8\common\1cestart.exe" ENTERPRISE /S"kassa/retail" /N"Администратор" /P""  /C РазрешитьРаботуПользователей /UCКодРазрешения
+"C:\Program Files (x86)\1cv8\common\1cestart.exe" ENTERPRISE /S"kassa/retail" /N"Администратор" /P""  /C РазрешитьРаботуПользователей /UCКодРазрешения
+"C:\Program Files\1cv8\common\1cestart.exe" ENTERPRISE /S"kassa4/retail" /N"Администратор" /P""  /C РазрешитьРаботуПользователей /UCКодРазрешения
+"C:\Program Files (x86)\1cv8\common\1cestart.exe" ENTERPRISE /S"kassa4/retail" /N"Администратор" /P""  /C РазрешитьРаботуПользователей /UCКодРазрешения
+"C:\Program Files\1cv8\common\1cestart.exe" ENTERPRISE /S"kassa99/retail" /N"Администратор" /P""  /C РазрешитьРаботуПользователей /UCКодРазрешения
+"C:\Program Files (x86)\1cv8\common\1cestart.exe" ENTERPRISE /S"kassa99/retail" /N"Администратор" /P""  /C РазрешитьРаботуПользователей /UCКодРазрешения
+"C:\Program Files\1cv8\common\1cestart.exe" ENTERPRISE /S"kassa1/retail" /N"Администратор" /P""  /C РазрешитьРаботуПользователей /UCКодРазрешения
+"C:\Program Files (x86)\1cv8\common\1cestart.exe" ENTERPRISE /S"kassa1/retail" /N"Администратор" /P""  /C РазрешитьРаботуПользователей /UCКодРазрешения
+"C:\Program Files\1cv8\common\1cestart.exe" ENTERPRISE /S"pos-server/retail" /N"Администратор" /P""  /C РазрешитьРаботуПользователей /UCКодРазрешения
+"C:\Program Files (x86)\1cv8\common\1cestart.exe" ENTERPRISE /S"pos-server/retail" /N"Администратор" /P""  /C РазрешитьРаботуПользователей /UCКодРазрешения
+
