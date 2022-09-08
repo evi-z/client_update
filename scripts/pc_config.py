@@ -141,7 +141,7 @@ SCREEN_RESOLUTION_DICT_KEY = 'screen_resolution'
 PLATFORM_DICT_KEY = 'platform'
 CPU_DICT_KEY = 'cpu'
 PC_NAME = 'pc_name'
-
+MOTHERBOARD_DICT_KEY = 'mother'
 
 def main():
     #  ОЗУ и Диски
@@ -185,6 +185,16 @@ def main():
     # Платформа
     platform_ver = platform.win32_ver()
 
+    # Материнская плата
+    try:
+        man_moth = 'WMIC BASEBOARD GET Manufacturer /VALUE'.split()
+        manufacturer = str(subprocess.check_output(man_moth, shell=True)).split('\\n')[2].replace('\\r', '').split('=')[1]
+        prod_moth = 'WMIC BASEBOARD GET Product /VALUE'.split()
+        product = str(subprocess.check_output(prod_moth, shell=True)).split('\\n')[2].replace('\\r', '').split('=')[1]
+        mother = manufacturer + ' ' + product
+    except Exception:
+        mother = 'Unknown'
+
     # Процессор
     try:  # Какая-то ошибка?
         cpu = cpuinfo.get_cpu_info()['brand_raw']
@@ -204,7 +214,8 @@ def main():
         SCREEN_RESOLUTION_DICT_KEY: screen_resolution,
         PLATFORM_DICT_KEY: platform_ver,
         CPU_DICT_KEY: cpu,
-        PC_NAME: pc_name
+        PC_NAME: pc_name,
+        MOTHERBOARD_DICT_KEY: mother
     }
 
     try:
