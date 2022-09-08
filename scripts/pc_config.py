@@ -8,6 +8,7 @@ import psutil
 import ctypes
 import socket
 import json
+import subprocess
 from subprocess import run, PIPE
 
 import requests
