@@ -57,14 +57,16 @@ def ps_inp_ram_type_to_list(str_out):
     ls_out = optimize_power_shell_inp(str_out)
 
     tupl_list_out = []
-    for el in ls_out:
-        sp = el.split(':')
-        name = sp[0].strip()
-        data = sp[1].strip()
-
-        tupl_list_out.append((name, data))
-
+    error = []
+    try:
+        for el in ls_out:
+            sp = el.split(':')
+            name = sp[0].strip()
+            data = sp[1].strip()
+            tupl_list_out.append((name, data))
         return tupl_list_out
+    except IndexError:
+        return error
 
 
 # Преобразует вывод информации о дисках в список кортежей
