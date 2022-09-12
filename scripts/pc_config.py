@@ -64,7 +64,7 @@ def ps_inp_ram_type_to_list(str_out):
             name = sp[0].strip()
             data = sp[1].strip()
             tupl_list_out.append((name, data))
-        return tupl_list_out
+            return tupl_list_out
     except IndexError:
         return error
 
