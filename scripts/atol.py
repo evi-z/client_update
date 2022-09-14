@@ -212,7 +212,10 @@ data_dict = {
 fptr.close()  # Закрытие соединения
 del fptr  # Деинсталяция экземпляра драйвера
 
-try:
-    send_data(data_dict)  # Отправляем данные на сервер
-except (ConnectionRefusedError, ConnectionResetError):
-    logger.error(f'Скрипт {get_basename(__file__)} не смог отправить данные на север')
+i = 2
+while i > 0:
+    try:
+        send_data(data_dict)  # Отправляем данные на сервер
+    except (ConnectionRefusedError, ConnectionResetError, Exception):
+        logger.error(f'Скрипт {get_basename(__file__)} не смог отправить данные на север')
+    i -= 1

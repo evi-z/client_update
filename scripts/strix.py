@@ -78,46 +78,51 @@ def get_first_connection():
     return devices
 
 
-# def check_papper() -> bool:
-#     try:
-#         with open('papper_', 'r') as _:
-#             pass
-#         return True
-#     except FileNotFoundError:
-#         return False
+def check_papper() -> bool:
+    try:
+        ex = Path(__file__).parent.joinpath('papper_')
+        if os.path.exists(ex):
+        # with open('papper_', 'r') as _:
+        #     pass
+            return True
+    except FileNotFoundError:
+        return False
 
 
 # # Устанавливает настройки кассовой ленты
-# def set_papper_settings(device_, pharmacy, kassa):
-#     device_.write_table(1, 1, 29, 0, int)  # Межстрочный интервал
-#     device_.write_table(1, 1, 31, 1, int)  # Сжатие шрифта на чековой ленте
-#     device_.write_table(17, 1, 18, 6, int)  # Rus, компактный заголовок
-#     device_.write_table(17, 1, 41, 1, int)  # Принимать все КТ
-#
-#     import urllib
-#     import urllib.request
-#     # url = 'http://85.143.156.89/papper_send/'
-#     url = 'http://78.37.67.153/papper_send/'
-#     values = {
-#         'pharmacy': pharmacy,
-#         'kassa': kassa,
-#         'with_kt': True
-#     }
-#
-#     data = urllib.parse.urlencode(values).encode('utf-8')
-#     req = urllib.request.Request(url, data)
-#     with urllib.request.urlopen(req) as response:
-#         _ = response.read()
-#
-#     with open('papper_', 'w') as _:  # Ну правда надо было быстро
-#         pass
-#
-#     try:  # Ох
-#         os.remove('papper')
-#     except Exception:
-#         pass
-#
-#     logger.info('Настройка кассовой ленты завершена!')
+def set_papper_settings(device_, pharmacy, kassa):
+    # device_.write_table(1, 1, 29, 0, int)  # Межстрочный интервал
+    # device_.write_table(1, 1, 31, 1, int)  # Сжатие шрифта на чековой ленте
+    # device_.write_table(17, 1, 18, 6, int)  # Rus, компактный заголовок
+    # device_.write_table(17, 1, 41, 1, int)  # Принимать все КТ
+    device_.write_table(1, 1, 6, 2, int)  # Работа с денежным ящиком
+
+    import urllib
+    import urllib.request
+    # url = 'http://85.143.156.89/papper_send/'
+    url = 'http://78.37.67.153/papper_send/'
+    values = {
+        'pharmacy': pharmacy,
+        'kassa': kassa,
+        'with_kt': True
+    }
+
+    data = urllib.parse.urlencode(values).encode('utf-8')
+    req = urllib.request.Request(url, data)
+    with urllib.request.urlopen(req) as response:
+        _ = response.read()
+
+    # with open('papper_', 'w') as _:  # Ну правда надо было быстро
+    #     pass
+    ex = Path(__file__).parent.joinpath('papper_')
+    try:
+        if os.path.exists(ex):
+            os.remove(ex)
+            # os.remove('papper_')
+    except Exception:
+        pass
+
+    logger.info('Настройка кассовой ленты завершена!')
 
 
 # Получаем список аргументов коммандной строки
@@ -165,11 +170,11 @@ logger.info(f'Скрипт {get_basename(__file__)} обнаружил ККМ и
 
 device.connect()  # Коннектим к ККМ
 
-# if not check_papper():  TODO Устарело, меняли ширину ленты
-#     try:  # Настройка кассовой ленты
-#         set_papper_settings(device, pharmacy, kassa)
-#     except Exception:
-#         logger.error('Не удалось выполнить настройку кассовой ленты', exc_info=True)
+if check_papper():
+    try:  # Настройка кассовой ленты
+        set_papper_settings(device, pharmacy, kassa)
+    except Exception:
+        logger.error('Не удалось выполнить настройку кассовой ленты', exc_info=True)
 
 # Константы таблицы
 TABLE_FISCAL_STORAGE_NUMBER = 18  # Номер таблицы Fiscal Storage
