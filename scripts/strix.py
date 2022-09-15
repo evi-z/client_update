@@ -19,14 +19,14 @@ INSTALLER_LIBRARY_MODULE_NAME = 'installer_libary.py'
 
 for i in range(2):  # 2 попытки (БОЖЕ, ЭТО ЖЕСТЬ, Я ПИСАЛ ЭТО ДАВНО)
     try:  # Пытаемся импортировать модуль
-        import pyshtrih
+        import pyshtrih2
         import requests
 
         break
     except ModuleNotFoundError:  # Если нет
-        logger.warning(f'Скрипт {get_basename(__file__)} не смог импортировать модуль pyshtrih, попытка установки')
+        logger.warning(f'Скрипт {get_basename(__file__)} не смог импортировать модуль pyshtrih2, попытка установки')
 
-        run([sys.executable, os.path.join(os.getcwd(), INSTALLER_LIBRARY_MODULE_NAME), 'pyshtrih'])
+        run([sys.executable, os.path.join(os.getcwd(), INSTALLER_LIBRARY_MODULE_NAME), 'pyshtrih2'])
 
 
 # # Создаёт словарь приветствия и кодирует в JSON [УСТАРЕЛО]
@@ -73,7 +73,7 @@ def get_argv_list(argv):
 
 
 def get_first_connection():
-    devices = pyshtrih.discovery()  # Ищем ККМ
+    devices = pyshtrih2.discovery()  # Ищем ККМ
 
     return devices
 
@@ -143,7 +143,7 @@ elif len(arg) == 4:  # Если переданы COM-порт и Скорост�
     com_port = arg[2]  # COM порт
     baudrate = arg[3]  # Скорость
 
-    devices = pyshtrih.discovery(port=com_port, baudrate=baudrate)  # Подключаемся к ККМ
+    devices = pyshtrih2.discovery(port=com_port, baudrate=baudrate)  # Подключаемся к ККМ
 
     if not devices:  # Если всё равно не найдено
         devices = get_first_connection()  # Пытаемся найти
