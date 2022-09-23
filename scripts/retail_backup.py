@@ -273,8 +273,11 @@ def comzav():
             'status_code': 'IBASES_FILE_ERROR',
             'description': f'Файл конфигурации ibases.v8i некорректен'
         }
+    if pcname == 'pos-server':  # проверка на линукс сервер
+        remote_path = fr'\\{pcname}\share\backups\retail'
+    else:
+        remote_path = fr'\\{pcname}\BackupRetail'
 
-    remote_path = fr'\\{pcname}\BackupRetail'
     try:
         listdir = os.listdir(remote_path)
     except PermissionError:
