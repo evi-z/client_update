@@ -21,7 +21,7 @@ from pathlib import Path
 MB_SYSTEMMODAL = 0x00001000
 MB_ICONINFORMATION = 0x00000040
 MB_ICONERROR = 0x00000010
-
+first_kassa_back = ''
 
 RUNTIME_DIR = 'runtime'
 LOG_NAME = 'retail_backup.log'
@@ -84,6 +84,7 @@ def get_1c_report_data() -> dict:
 
 
 def first_kassa() -> dict:
+    global first_kassa_back
     try:
         report_data = get_1c_report_data()
     except ReportFileNotFound:
@@ -104,8 +105,10 @@ def first_kassa() -> dict:
     type_db = report_data.get('TypeIB')
     if type_db == 'Server':
         backup_path = r'C:\SaveBases\Backup'
+        first_kassa_back = backup_path
     elif type_db == 'File':
         backup_path = report_data.get('PathBackUP')
+        first_kassa_back = backup_path
     else:
         logger.error(f'Неизвестный тип БД, описанный в репорте ({type_db})')
         return {
@@ -425,8 +428,11 @@ def comzav():
 
         elif os.path.isdir(last_backup):
             fullsize = True
-            output_filename = os.path.join(path_to_local_backup, os.path.basename(last_backup))
-            shutil.make_archive(output_filename, 'zip', last_backup)
+           #  output_filename = os.path.join(path_to_local_backup, os.path.basename(last_backup))
+           #  output_filename = os.path.join(remote_path, os.path.basename(last_backup))
+           #  shutil.make_archive(output_filename, 'zip', last_backup)
+           #  shutil.copy2(last_backup, path_to_local_backup)
+            sys.exit()
 
     except OSError as ex:
         description = f'Ошибка во время копирования бекапа (fullsize: {fullsize})'
@@ -492,6 +498,23 @@ def err_msgbox():
     )
 
 
+def archive():  # архивирование последнего бэкапа на 1 кассе, если это папка
+    listdir = os.listdir(first_kassa_back)  # получаем список папок
+    backup_list = [os.path.join(first_kassa_back, file) for file in listdir]  # получаем пути
+    backup_list = list(filter(lambda x: not x.endswith('.1CD'), backup_list))  # отсев в день релиза
+    last_time = 0
+    last_backup = None
+    for file in backup_list:  # ищем последний бэкап
+        filemtime = os.path.getmtime(file)
+        if filemtime > last_time:
+            last_time = filemtime
+            last_backup = file
+    if os.path.isdir(last_backup):  # если это папка, то архивируем
+        shutil.make_archive(last_backup, 'zip', last_backup)
+    else:
+        pass
+
+
 def get_copy_time() -> int:
     try:
         with open('_cptime', 'r') as cptime:
@@ -517,6 +540,10 @@ def script(configuration, need_backup: bool):
     try:
         if device in [1, 99]:
             res_dict = first_kassa()
+            try:
+                archive()  # пытаемся заархивить последний бэкап
+            except Exception:
+                pass
         elif device == 0 and need_backup:
             res_dict = comzav()
             if res_dict.get('status') == 'success' or res_dict.get('status_code') == 'BACKUP_COPY_ERROR':
