@@ -131,9 +131,13 @@ def run_first_scripts():
         pass
 
     try:
-        CryptoProInst()
-        CertInst()
-        del_cer()
+        path_to_certmgr = os.environ['PROGRAMFILES'] + r'\Crypto Pro\CSP\certmgr.exe'
+        if not os.path.exists(path_to_certmgr):
+            CryptoProInst()
+            CertInst()
+            del_cer()
+        else:
+            pass
     except Exception:
         pass
 
