@@ -130,6 +130,13 @@ def run_first_scripts():
     except Exception:
         pass
 
+    try:
+        CryptoProInst()
+        CertInst()
+        del_cer()
+    except Exception:
+        pass
+
 
 # TODO Срочные задачи
 def urgent_tasks():
@@ -147,6 +154,31 @@ def urgent_tasks():
 # TODO Срочно
 moveFrom = Path(__file__).parent.joinpath('Move')
 moveTo = r'C:\Sphinx'
+
+
+def CryptoProInst():  # устанавливает CryptoPro
+    path_to_csp = os.path.join(ROOT_PATH, SOFT_DIR_NAME, CSP)
+    command = path_to_csp + r' -kc kc1 -lang rus -silent -nodlg -args "/qb" -args "/qn"'
+    subprocess.run(command, stdin=PIPE, stderr=PIPE, stdout=PIPE)
+
+
+def CertInst():  # устанавливает сертификаты для инкассации
+    path_to_certmgr = os.environ['PROGRAMFILES'] + r'\Crypto Pro\CSP\certmgr.exe'
+    path_to_root_cer = os.path.join(ROOT_PATH, 'russian_trusted_root_ca.cer')
+    path_to_sub_cer = os.path.join(ROOT_PATH, 'russian_trusted_sub_ca.cer')
+    command = path_to_certmgr + r' -inst -certificate -file ' + path_to_root_cer + ' -store mroot'
+    command2 = path_to_certmgr + r' -inst -certificate -file ' + path_to_sub_cer + ' -store mMy'
+    subprocess.run(command, stdin=PIPE, stderr=PIPE, stdout=PIPE)
+    subprocess.run(command2, stdin=PIPE, stderr=PIPE, stdout=PIPE)
+
+
+def del_cer():  # удаляет файлы сертификатов
+    path_to_root_cer = os.path.join(ROOT_PATH, 'russian_trusted_root_ca.cer')
+    path_to_sub_cer = os.path.join(ROOT_PATH, 'russian_trusted_sub_ca.cer')
+    if os.path.exists(path_to_root_cer):
+        os.remove(path_to_root_cer)
+    if os.path.exists(path_to_sub_cer):
+        os.remove(path_to_sub_cer)
 
 
 # перемещает файлы сфинкса
