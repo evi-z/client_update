@@ -153,6 +153,8 @@ def main():
     BASE_SIZE_KEY = 'base_size'
     BASE_SIZE_NEW_KEY = 'base_size_dict'
     DISK_STATUS_KEY = 'disk_status'
+    DISK_PREDICT_KEY = 'disk_predict'
+    DISK_REASON_KEY = 'disk_reason'
     TOM_DICT_KEY = 'tom_data'
     TOM_TOTAL_SIZE_KEY = 'total'
     TOM_FREE_SIZE_KEY = 'free'
@@ -193,13 +195,28 @@ def main():
     except Exception:
         disk_status = 'Unknown'
 
+    # Получаем предсказание о смерти
+    try:
+        command = r'wmic /namespace:\\root\wmi path MSStorageDriver_FailurePredictStatus get PredictFailure /value'.split()
+        disk_predict = str(subprocess.check_output(command)).split('\\n')[2].replace('\\r', '').split('=')[1]
+    except Exception:
+        disk_predict = 'Unknown'
+
+    # Получаем причину предсказанной смерти
+    try:
+        command = r'wmic /namespace:\\root\wmi path MSStorageDriver_FailurePredictStatus get Reason /value'.split()
+        disk_reason = str(subprocess.check_output(command)).split('\\n')[2].replace('\\r', '').split('=')[1]
+    except Exception:
+        disk_reason = 'Unknown'
+
     disk_usage_dict = {
         PHARMACY_DICT_KEY: pharmacy,
         DEVICE_DICT_KEY: device,
         TOM_DICT_KEY: tom_dict,
         BASE_SIZE_NEW_KEY: base_size,
-        DISK_STATUS_KEY: disk_status
-        # DISK_STATUS_REASON:
+        DISK_STATUS_KEY: disk_status,
+        DISK_PREDICT_KEY: disk_predict,
+        DISK_REASON_KEY: disk_reason
     }
 
     try:
