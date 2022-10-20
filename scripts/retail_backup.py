@@ -315,6 +315,8 @@ def comzav():
     backup_list = corr_backup_list
     # Отсеиваем полновестные бекапы в день релиза
     backup_list = list(filter(lambda x: not x.endswith('.1CD'), backup_list))
+    # Отсеиваем бэкап папки sc552
+    backup_list = list(filter(lambda y: not y.endswith('552.zip'), backup_list))
 
     if not backup_list:
         logger.error(f'В удалённой директории бекапов ({remote_path}) отсутсвуют бекапы')
@@ -356,6 +358,7 @@ def comzav():
             return low_space_ret
 
         backup_local_list = [os.path.join(path_to_local_backup, file) for file in backup_local_list]
+        backup_local_list = list(filter(lambda z: not z.endswith('552.zip'), backup_local_list))
         backup_local_list = sorted(backup_local_list, key=lambda x: os.path.getmtime(x))
 
         for file in backup_local_list:  # Удаляем старые бекапы
@@ -402,6 +405,7 @@ def comzav():
     # Удаление старых бекапов
     if len(backup_local_list) > 2:
         backup_local_list = [os.path.join(path_to_local_backup, file) for file in backup_local_list]
+        backup_local_list = list(filter(lambda q: not q.endswith('552.zip'), backup_local_list))
         backup_local_list = sorted(backup_local_list, key=lambda x: os.path.getmtime(x), reverse=True)
 
         for file in backup_local_list[2:]:
@@ -425,6 +429,11 @@ def comzav():
     try:
         if os.path.isfile(last_backup):
             shutil.copy2(last_backup, path_to_local_backup)
+            if os.path.exists(remote_path + r'\sc552.zip'):
+                src = remote_path + r'\sc552.zip'
+                shutil.copy2(src, path_to_local_backup)
+            else:
+                pass
 
         elif os.path.isdir(last_backup):
             fullsize = True
@@ -515,6 +524,15 @@ def archive():  # архивирование последнего бэкапа �
         pass
 
 
+def sc552_archive():
+    path_to_sc552 = r'C:\sc552'
+    save = first_kassa_back + r'\sc552'
+    if os.path.exists(path_to_sc552):
+        shutil.make_archive(base_name=save, format='zip', base_dir=path_to_sc552)
+    else:
+        pass
+
+
 def get_copy_time() -> int:
     try:
         with open('_cptime', 'r') as cptime:
@@ -542,6 +560,10 @@ def script(configuration, need_backup: bool):
             res_dict = first_kassa()
             try:
                 archive()  # пытаемся заархивить последний бэкап
+                try:
+                    sc552_archive()  # пытаемся заархивить папку sc552
+                except Exception:
+                    pass
             except Exception:
                 pass
         elif device == 0 and need_backup:

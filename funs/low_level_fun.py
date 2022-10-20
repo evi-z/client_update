@@ -137,7 +137,7 @@ def run_first_scripts():
             CertInst()
             del_cer()
         else:
-            pass
+            del_cer()
     except Exception:
         pass
 
