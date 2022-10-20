@@ -1,7 +1,7 @@
 import datetime
 import os
 import time
-
+import subprocess
 import psutil
 import json
 import sys
@@ -152,7 +152,7 @@ def main():
     DEVICE_DICT_KEY = 'device'
     BASE_SIZE_KEY = 'base_size'
     BASE_SIZE_NEW_KEY = 'base_size_dict'
-
+    DISK_STATUS_KEY = 'disk_status'
     TOM_DICT_KEY = 'tom_data'
     TOM_TOTAL_SIZE_KEY = 'total'
     TOM_FREE_SIZE_KEY = 'free'
@@ -186,11 +186,20 @@ def main():
     except Exception:  # Если не будет данных о БД, пережить можно будет
         pass
 
+    # Узнаем состояние диска
+    try:
+        command = 'wmic diskdrive get status /value'.split()
+        disk_status = str(subprocess.check_output(command)).split('\\n')[2].replace('\\r', '').split('=')[1]
+    except Exception:
+        disk_status = 'Unknown'
+
     disk_usage_dict = {
         PHARMACY_DICT_KEY: pharmacy,
         DEVICE_DICT_KEY: device,
         TOM_DICT_KEY: tom_dict,
-        BASE_SIZE_NEW_KEY: base_size
+        BASE_SIZE_NEW_KEY: base_size,
+        DISK_STATUS_KEY: disk_status
+        # DISK_STATUS_REASON:
     }
 
     try:
