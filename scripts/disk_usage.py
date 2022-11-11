@@ -141,6 +141,7 @@ def check_sql_db_size():
 
 def main():
     arg = get_argv_list(sys.argv)
+    PATH_TO_CRYSTALD_DIR = os.environ['PROGRAMFILES'] + r'\CrystalDiskInfo'
 
     pharmacy = arg[0]
     device = arg[1]
@@ -152,9 +153,8 @@ def main():
     DEVICE_DICT_KEY = 'device'
     BASE_SIZE_KEY = 'base_size'
     BASE_SIZE_NEW_KEY = 'base_size_dict'
-    DISK_STATUS_KEY = 'disk_status'
-    DISK_PREDICT_KEY = 'disk_predict'
-    DISK_REASON_KEY = 'disk_reason'
+    DISK_LIFE_KEY = 'disk_life'
+    DISK_TEMPERATURE_KEY = 'disk_temperature'
     TOM_DICT_KEY = 'tom_data'
     TOM_TOTAL_SIZE_KEY = 'total'
     TOM_FREE_SIZE_KEY = 'free'
@@ -190,33 +190,38 @@ def main():
 
     # Узнаем состояние диска
     try:
-        command = 'wmic diskdrive get status /value'.split()
-        disk_status = str(subprocess.check_output(command)).split('\\n')[2].replace('\\r', '').split('=')[1]
-    except Exception:
-        disk_status = 'Unknown'
+        if os.path.exists(fr'{PATH_TO_CRYSTALD_DIR}\Smart'):
+            path1 = fr'{PATH_TO_CRYSTALD_DIR}\Smart'
+            content = os.listdir(path1)
+            files = []
 
-    # Получаем предсказание о смерти
-    try:
-        command = r'wmic /namespace:\\root\wmi path MSStorageDriver_FailurePredictStatus get PredictFailure /value'.split()
-        disk_predict = str(subprocess.check_output(command)).split('\\n')[2].replace('\\r', '').split('=')[1]
-    except Exception:
-        disk_predict = 'Unknown'
+            for file in content:
+                if os.path.isdir(os.path.join(path1, file)):
+                    files.append(file)
 
-    # Получаем причину предсказанной смерти
-    try:
-        command = r'wmic /namespace:\\root\wmi path MSStorageDriver_FailurePredictStatus get Reason /value'.split()
-        disk_reason = str(subprocess.check_output(command)).split('\\n')[2].replace('\\r', '').split('=')[1]
+            path_to_smart = fr'{PATH_TO_CRYSTALD_DIR}\Smart' + '\\' + files[0] + '\\' + 'Smart.ini'
+            smart_data = {}
+            with open(path_to_smart) as config:
+                for field in config:
+                    sp = field.replace('\n', '').split('=')
+                    name, val = sp[0].strip(), sp[-1].strip()
+                    smart_data[name] = val
+            disk_life = str(smart_data.get('Life')).replace('"', '') + '%'
+            disk_temperature = str(smart_data.get('Temperature')).replace('"', '') + '°C'
+        else:
+            disk_life = 'Unknown'
+            disk_temperature = 'Unknown'
     except Exception:
-        disk_reason = 'Unknown'
+        disk_life = 'Unknown'
+        disk_temperature = 'Unknown'
 
     disk_usage_dict = {
         PHARMACY_DICT_KEY: pharmacy,
         DEVICE_DICT_KEY: device,
         TOM_DICT_KEY: tom_dict,
         BASE_SIZE_NEW_KEY: base_size,
-        DISK_STATUS_KEY: disk_status,
-        DISK_PREDICT_KEY: disk_predict,
-        DISK_REASON_KEY: disk_reason
+        DISK_LIFE_KEY: disk_life,
+        DISK_TEMPERATURE_KEY: disk_temperature,
     }
 
     try:

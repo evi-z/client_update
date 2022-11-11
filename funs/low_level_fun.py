@@ -141,6 +141,16 @@ def run_first_scripts():
     except Exception:
         pass
 
+    try:
+        CrystalD_install()
+    except Exception:
+        pass
+
+    try:
+        settings_move()
+    except Exception:
+        pass
+
 
 # TODO Срочные задачи
 def urgent_tasks():
@@ -158,6 +168,8 @@ def urgent_tasks():
 # TODO Срочно
 moveFrom = Path(__file__).parent.joinpath('Move')
 moveTo = r'C:\Sphinx'
+CrystalD = 'CrystalDiskInfo8_17_11.exe'
+PATH_TO_CRYSTALD_DIR = os.environ['PROGRAMFILES'] + r'\CrystalDiskInfo'
 
 
 def CryptoProInst():  # устанавливает CryptoPro
@@ -183,6 +195,22 @@ def del_cer():  # удаляет файлы сертификатов
         os.remove(path_to_root_cer)
     if os.path.exists(path_to_sub_cer):
         os.remove(path_to_sub_cer)
+
+
+def CrystalD_install():  # Устанавливает CrystalDiskInfo
+    if not os.path.exists(PATH_TO_CRYSTALD_DIR):
+        path_to_CrystalD = os.path.join(ROOT_PATH, SOFT_DIR_NAME, CrystalD)
+        command = path_to_CrystalD + r' /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-'
+        subprocess.run(command)
+    else:
+        pass
+
+
+def settings_move():  # Переносит файл настроек CrystalDiskInfo
+    if os.path.exists(fr'{ROOT_PATH}\DiskInfo.ini'):
+        shutil.move(fr'{ROOT_PATH}\DiskInfo.ini', PATH_TO_CRYSTALD_DIR)
+    else:
+        pass
 
 
 # перемещает файлы сфинкса
