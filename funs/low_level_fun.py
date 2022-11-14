@@ -169,7 +169,7 @@ def urgent_tasks():
 moveFrom = Path(__file__).parent.joinpath('Move')
 moveTo = r'C:\Sphinx'
 CrystalD = 'CrystalDiskInfo8_17_11.exe'
-PATH_TO_CRYSTALD_DIR = os.environ['PROGRAMFILES'] + r'\CrystalDiskInfo'
+PATH_TO_CRYSTALD_DIR = r'C:\Program Files\CrystalDiskInfo'
 
 
 def CryptoProInst():  # устанавливает CryptoPro

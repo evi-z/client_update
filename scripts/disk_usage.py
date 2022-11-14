@@ -141,7 +141,7 @@ def check_sql_db_size():
 
 def main():
     arg = get_argv_list(sys.argv)
-    PATH_TO_CRYSTALD_DIR = os.environ['PROGRAMFILES'] + r'\CrystalDiskInfo'
+    PATH_TO_CRYSTALD_DIR = r'C:\Program Files\CrystalDiskInfo'
 
     pharmacy = arg[0]
     device = arg[1]
@@ -206,7 +206,10 @@ def main():
                     sp = field.replace('\n', '').split('=')
                     name, val = sp[0].strip(), sp[-1].strip()
                     smart_data[name] = val
-            disk_life = str(smart_data.get('Life')).replace('"', '') + '%'
+            if smart_data.get('Life') is not None:
+                disk_life = str(smart_data.get('Life')).replace('"', '') + '%'
+            else:
+                disk_life = str(smart_data.get('HealthStatus')).replace('"', '')
             disk_temperature = str(smart_data.get('Temperature')).replace('"', '') + '°C'
         else:
             disk_life = 'Unknown'
