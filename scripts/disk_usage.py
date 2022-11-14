@@ -197,9 +197,10 @@ def main():
 
             for file in content:
                 if os.path.isdir(os.path.join(path1, file)):
-                    files.append(file)
+                    files.append(os.path.join(path1, file))
 
-            path_to_smart = fr'{PATH_TO_CRYSTALD_DIR}\Smart' + '\\' + files[0] + '\\' + 'Smart.ini'
+            files = sorted(files, key=lambda x: os.path.getmtime(x), reverse=True)
+            path_to_smart = files[0] + '\\' + 'Smart.ini'
             smart_data = {}
             with open(path_to_smart) as config:
                 for field in config:
