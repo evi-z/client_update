@@ -1,0 +1,4 @@
+apteka = 1
+category = 1
+device = 1
+brend = Nevis
