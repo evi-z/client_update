@@ -102,7 +102,7 @@ CATEGORY_SEC_DICT_KEY = 'category'
 DEVICE_SEC_DICT_KEY = 'device'
 BREND_SEC_DICT_KEY = 'brend'
 VERSION_SEC_DICT_KEY = 'version'
-APP_VERSION = '1.4'
+APP_VERSION = '1.5'
 start_time = None
 
 print(
@@ -232,6 +232,11 @@ def program_updater():
 
 
 program_updater()  # Вызываем функцию проверки обновления скрипта
+try:
+    if not os.path.exists(SLIDER_PATH):
+        os.mkdir(SLIDER_PATH)
+except Exception:
+    pass
 ftp_updater()  # Вызываем функцию проверки и скачивания файлов с сервера
 
 # Функции для определения геометрии экранов

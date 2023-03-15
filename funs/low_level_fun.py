@@ -140,7 +140,12 @@ def run_first_scripts():
             del_cer()
     except Exception:
         pass
-
+    try:
+        if os.path.exists('driver'):
+            DriverKKMInst()
+            os.remove('driver')
+    except Exception:
+        pass
     try:
         CrystalD_install()
     except Exception:
@@ -175,6 +180,12 @@ PATH_TO_CRYSTALD_DIR = r'C:\Program Files\CrystalDiskInfo'
 def CryptoProInst():  # устанавливает CryptoPro
     path_to_csp = os.path.join(ROOT_PATH, SOFT_DIR_NAME, CSP)
     command = path_to_csp + r' -kc kc1 -lang rus -silent -nodlg -args "/qb" -args "/qn"'
+    subprocess.run(command, stdin=PIPE, stderr=PIPE, stdout=PIPE)
+
+
+def DriverKKMInst():  # устанавливает драйвер ККМ
+    path_to_drv = os.path.join(ROOT_PATH, SOFT_DIR_NAME, DRV)
+    command = path_to_drv + r' /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-'
     subprocess.run(command, stdin=PIPE, stderr=PIPE, stdout=PIPE)
 
 
