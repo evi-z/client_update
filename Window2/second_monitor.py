@@ -102,7 +102,7 @@ CATEGORY_SEC_DICT_KEY = 'category'
 DEVICE_SEC_DICT_KEY = 'device'
 BREND_SEC_DICT_KEY = 'brend'
 VERSION_SEC_DICT_KEY = 'version'
-APP_VERSION = '1.5'
+APP_VERSION = '1.6'
 start_time = None
 
 print(
@@ -461,8 +461,10 @@ try:
         window.geometry(f'{abs(monitor_areas()[1][0])}x{monitor_areas()[1][3]}-{monitor_areas()[0][2]}+0')
     elif abs(monitor_areas()[0][0]) == 1080:
         window.geometry(f'{abs(monitor_areas()[0][0])}x{monitor_areas()[0][3]}-{monitor_areas()[1][2]}+0')
-    else:  # Горизонтальное положение
+    elif abs(monitor_areas()[1][0]) == 1920:  # Горизонтальное положение
         window.geometry(f'{abs(monitor_areas()[1][0])}x{monitor_areas()[1][3]}-{monitor_areas()[0][2]}+0')
+    elif abs(monitor_areas()[0][0]) == 1920:
+        window.geometry(f'{abs(monitor_areas()[0][0])}x{monitor_areas()[0][3]}-{monitor_areas()[1][2]}+0')
 except IndexError:
     print('\n\nОшибка! Второй монитор не обнаружен.\n\nПрограмма будет автоматически закрыта.')
     thread.cancel()
