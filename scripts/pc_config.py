@@ -153,11 +153,17 @@ def main():
         new_version = '5.17'
         program_files_86 = os.environ.get('ProgramFiles(x86)', '')
         program_files = os.environ.get('ProgramW6432', '')
+        hard_program_files_86 = r'C:\Program Files (x86)'
+        hard_program_files = r'C:\Program Files'
 
         if os.path.exists(os.path.join(program_files_86, r'SHTRIH-M\DrvFR5\Bin\DrvFRTst.exe')):
             path_to_drvr = os.path.join(program_files_86, r'SHTRIH-M\DrvFR5\Bin\DrvFRTst.exe')
         elif os.path.exists(os.path.join(program_files, r'SHTRIH-M\DrvFR5\Bin\DrvFRTst.exe')):
             path_to_drvr = os.path.join(program_files, r'SHTRIH-M\DrvFR5\Bin\DrvFRTst.exe')
+        elif os.path.exists(r'C:\Program Files (x86)\SHTRIH-M\DrvFR5\Bin\DrvFRTst.exe'):
+            path_to_drvr = r'C:\Program Files (x86)\SHTRIH-M\DrvFR5\Bin\DrvFRTst.exe'
+        elif os.path.exists(r'C:\Program Files\SHTRIH-M\DrvFR5\Bin\DrvFRTst.exe'):
+            path_to_drvr = r'C:\Program Files\SHTRIH-M\DrvFR5\Bin\DrvFRTst.exe'
         else:
             path_to_drvr = None
 
