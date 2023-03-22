@@ -134,7 +134,6 @@ logger.info(f'Скрипт {get_basename(__file__)} начал работу')
 # Ключи словаря конфигурации
 PHARMACY_DICT_KEY = 'pharmacy'
 DEVICE_DICT_KEY = 'device'
-
 RAM_DICT_KEY = 'ram'
 RAM_TYPE_DICT_KEY = 'ram_type'
 SWAP_DICT_KEY = 'swap'
@@ -145,8 +144,36 @@ PLATFORM_DICT_KEY = 'platform'
 CPU_DICT_KEY = 'cpu'
 PC_NAME = 'pc_name'
 MOTHERBOARD_DICT_KEY = 'mother'
+DRIVER_DICT_KEY = 'version'
+
 
 def main():
+    try:
+        old_version = '5.16'
+        new_version = '5.17'
+        program_files_86 = os.environ.get('ProgramFiles(x86)', '')
+        program_files = os.environ.get('ProgramW6432', '')
+
+        if os.path.exists(os.path.join(program_files_86, r'SHTRIH-M\DrvFR5\Bin\DrvFRTst.exe')):
+            path_to_drvr = os.path.join(program_files_86, r'SHTRIH-M\DrvFR5\Bin\DrvFRTst.exe')
+        elif os.path.exists(os.path.join(program_files, r'SHTRIH-M\DrvFR5\Bin\DrvFRTst.exe')):
+            path_to_drvr = os.path.join(program_files, r'SHTRIH-M\DrvFR5\Bin\DrvFRTst.exe')
+        else:
+            path_to_drvr = None
+
+        if path_to_drvr is not None:
+            drv_time = os.path.getmtime(path_to_drvr)
+            if str(drv_time) == '1632924742.0':
+                version = old_version
+            elif str(drv_time) == '1672332822.0':
+                version = new_version
+            else:
+                version = 'Undefined'
+        else:
+            version = 'Undefined'
+    except Exception:
+        version = 'Undefined'
+
     #  ОЗУ и Диски
     ram = psutil.virtual_memory().total  # Оперативная память (Байты)
     swap = psutil.swap_memory().total  # Файл подкачки
@@ -218,7 +245,8 @@ def main():
         PLATFORM_DICT_KEY: platform_ver,
         CPU_DICT_KEY: cpu,
         PC_NAME: pc_name,
-        MOTHERBOARD_DICT_KEY: mother
+        MOTHERBOARD_DICT_KEY: mother,
+        DRIVER_DICT_KEY: version
     }
 
     try:
