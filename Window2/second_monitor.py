@@ -58,7 +58,10 @@ try:
 except ImportError:
     print('\n\nОбнаружено отсутствие библиотеки pillow\nНачинаю скачивание...')
     subprocess.run('pip install pillow')
-    os.execv(sys.executable, [sys.executable] + sys.argv)
+    # os.execv(sys.executable, [sys.executable] + sys.argv)
+    subprocess.Popen([sys.executable, *sys.argv])
+    time.sleep(1)
+    sys.exit(0)
 
 from PIL import Image, ImageTk
 
@@ -67,7 +70,10 @@ try:
 except ImportError:
     print('\n\nОбнаружено отсутствие библиотеки qrcode\nНачинаю скачивание...')
     subprocess.run('pip install qrcode')
-    os.execv(sys.executable, [sys.executable] + sys.argv)
+    # os.execv(sys.executable, [sys.executable] + sys.argv)
+    subprocess.Popen([sys.executable, *sys.argv])
+    time.sleep(1)
+    sys.exit(0)
 
 import qrcode
 from qrcode.image.styledpil import StyledPilImage
@@ -92,6 +98,7 @@ ROOT_PATH = PathFile.replace(r'\second_monitor.py', '').strip()
 IMAGES_PATH = ROOT_PATH + r'\res'
 SLIDER_PATH = ROOT_PATH + r'\slider'
 PATH_TO_FILE = r'C:\output\sm_check.txt'
+PATH_TO_SETTINGS = r'C:\output\settings.txt'
 # PATH_TO_FILE = fr'{ROOT_PATH}\test.txt'
 thread = None
 thread_update = None
@@ -102,7 +109,7 @@ CATEGORY_SEC_DICT_KEY = 'category'
 DEVICE_SEC_DICT_KEY = 'device'
 BREND_SEC_DICT_KEY = 'brend'
 VERSION_SEC_DICT_KEY = 'version'
-APP_VERSION = '1.6'
+APP_VERSION = '1.8'
 start_time = None
 
 print(
@@ -128,7 +135,7 @@ def Startup():
 
 
 def ftp_updater():
-    global thread
+    global thread, thread_update
     if not os.path.exists(ROOT_PATH + r'\last_ftp_time.txt'):  # Если нет файла со временем - создаем
         with open(ROOT_PATH + r'\last_ftp_time.txt', 'w') as local_time_file:
             local_time_file.write('0')
@@ -136,27 +143,32 @@ def ftp_updater():
               'r') as local_time_file:  # Читаем время, когда были скачаны файлы с сервера
         last_ftp_time = int(local_time_file.readline())
 
-    with open(ROOT_PATH + r'\settings.txt') as config:  # Читаем файлы настроек и отправляем данные на сервер
-        for field in config:
-            sp = field.replace('\n', '').split('=')
-            name, val = sp[0].strip(), sp[-1].strip()
-            config_data[name] = val
-        pharmacy = config_data.get('apteka')
-        category = config_data.get('category')
-        device = config_data.get('device')
-        brend = config_data.get('brend')
-        version = APP_VERSION
-        second_monitor_dict = {
-            PHARMACY_SEC_DICT_KEY: pharmacy,
-            CATEGORY_SEC_DICT_KEY: category,
-            DEVICE_SEC_DICT_KEY: device,
-            BREND_SEC_DICT_KEY: brend,
-            VERSION_SEC_DICT_KEY: version
-        }
-        try:
-            send_data(second_monitor_dict)
-        except Exception:
-            print('Не удалось отправить данные на сервер, следующая попытка через 1 час')
+    try:
+        with open(PATH_TO_SETTINGS) as config:  # Читаем файлы настроек и отправляем данные на сервер
+            for field in config:
+                sp = field.replace('\n', '').split('=')
+                name, val = sp[0].strip(), sp[-1].strip()
+                config_data[name] = val
+            pharmacy = config_data.get('apteka')
+            category = config_data.get('category')
+            device = config_data.get('device')
+            brend = config_data.get('brend')
+            version = APP_VERSION
+            second_monitor_dict = {
+                PHARMACY_SEC_DICT_KEY: pharmacy,
+                CATEGORY_SEC_DICT_KEY: category,
+                DEVICE_SEC_DICT_KEY: device,
+                BREND_SEC_DICT_KEY: brend,
+                VERSION_SEC_DICT_KEY: version
+            }
+            try:
+                send_data(second_monitor_dict)
+            except Exception:
+                print('Не удалось отправить данные на сервер, следующая попытка через 1 час')
+    except FileNotFoundError:
+        print('\nФайл настроек не найден! Создается при первом входе в РМК. Программа будет закрыта через 15 сек.')
+        time.sleep(15.0)
+        sys.exit(0)
 
     try:
         with FTP(host='mail.nevis.spb.ru', user='2monitor', passwd='WWGFk3Se0d') as ftp:  # Соединяемся с FTP сервером
@@ -185,7 +197,15 @@ def ftp_updater():
                     with open(ROOT_PATH + r'\last_ftp_time.txt',
                               'w') as local_time_file:  # Записываем в файл время скачивания
                         local_time_file.write(str(servertime))
-                    os.execv(sys.executable, [sys.executable] + sys.argv)  # Перезапускаемся если скачали новые файлы
+                    # os.execv(sys.executable, [sys.executable] + sys.argv)  # Перезапускаемся если скачали новые файлы
+                    subprocess.Popen([sys.executable, *sys.argv])
+                    time.sleep(1)
+                    try:
+                        thread.cancel()
+                        thread_update.cancel()
+                    except Exception:
+                        pass
+                    sys.exit(0)
             elif config_data.get('brend') == 'LenOblFarm':
                 for name, facts in ftp.mlsd():
                     if name == 'LenOblFarm':
@@ -210,7 +230,15 @@ def ftp_updater():
                             os.remove(os.path.join(SLIDER_PATH, f))
                     with open(ROOT_PATH + r'\last_ftp_time.txt', 'w') as local_time_file:
                         local_time_file.write(str(servertime))
-                    os.execv(sys.executable, [sys.executable] + sys.argv)
+                    # os.execv(sys.executable, [sys.executable] + sys.argv)
+                    subprocess.Popen([sys.executable, *sys.argv])
+                    time.sleep(1)
+                    try:
+                        thread.cancel()
+                        thread_update.cancel()
+                    except Exception:
+                        pass
+                    sys.exit(0)
     except Exception:
         print('\n\nОшибка при обращении к файловому серверу.\nСледующая попытка через 1 час.')
     thread = threading.Timer(3600.0, ftp_updater)  # Проверяем каждый час
@@ -218,11 +246,19 @@ def ftp_updater():
 
 
 def program_updater():
-    global start_time, thread_update
+    global start_time, thread_update, thread
     try:
         now_time = os.path.getmtime(PathFile)
         if start_time != now_time:
-            os.execv(sys.executable, [sys.executable] + sys.argv)  # Перезапускаемся если обновился скрипт
+            # os.execv(sys.executable, [sys.executable] + sys.argv)  # Перезапускаемся если обновился скрипт
+            subprocess.Popen([sys.executable, *sys.argv])
+            time.sleep(1)
+            try:
+                thread.cancel()
+                thread_update.cancel()
+            except Exception:
+                pass
+            sys.exit(0)
         else:
             pass
     except Exception:
@@ -466,7 +502,7 @@ try:
     elif abs(monitor_areas()[0][0]) == 1920:
         window.geometry(f'{abs(monitor_areas()[0][0])}x{monitor_areas()[0][3]}-{monitor_areas()[1][2]}+0')
 except IndexError:
-    print('\n\nОшибка! Второй монитор не обнаружен.\n\nПрограмма будет автоматически закрыта.')
+    print('\n\nОшибка! Второй монитор не обнаружен.\n\nПрограмма будет автоматически закрыта через 15 сек.')
     thread.cancel()
     thread_update.cancel()
     time.sleep(15.0)
@@ -476,14 +512,14 @@ list_fonts = list(font.families())
 
 if 'Montserrat' not in list_fonts:
     print(
-        f'\n\nОшибка! Не установлен шрифт "Montserrat"\n\nУстановите шрифт из папки: {ROOT_PATH}\n\nПрограмма будет автоматически закрыта.')
+        f'\n\nОшибка! Не установлен шрифт "Montserrat"\n\nУстановите шрифт из папки: {ROOT_PATH}\n\nПрограмма будет автоматически закрыта через 15 сек.')
     thread.cancel()
     thread_update.cancel()
     time.sleep(15.0)
     sys.exit()
 if 'Montserrat Medium' not in list_fonts:
     print(
-        f'\n\nОшибка! Не установлен шрифт "Montserrat Medium"\n\nУстановите шрифт из папки: {ROOT_PATH}\n\nПрограмма будет автоматически закрыта.')
+        f'\n\nОшибка! Не установлен шрифт "Montserrat Medium"\n\nУстановите шрифт из папки: {ROOT_PATH}\n\nПрограмма будет автоматически закрыта через 15 сек.')
     thread.cancel()
     thread_update.cancel()
     time.sleep(15.0)
@@ -638,15 +674,24 @@ resize_image_files = []
 resize_big_image_files = []
 im = Image.open(IMAGES_PATH + r'\default_slide_back1_vertical.png')
 default_slide_back = ImageTk.PhotoImage(im)
+brend = config_data.get('brend')
 if abs(monitor_areas()[1][0]) == 1080 or abs(monitor_areas()[0][0]) == 1080:
     im2 = Image.open(IMAGES_PATH + r'\default_slide_back1_vertical.png')
 else:
     im2 = Image.open(IMAGES_PATH + r'\default_slide_back1_vertical.png')
 default_big_slide_back = ImageTk.PhotoImage(im2)
-if abs(monitor_areas()[1][0]) == 1080 or abs(monitor_areas()[0][0]) == 1080:
-    im3 = Image.open(IMAGES_PATH + r'\Ресурс 7.jpg')
+if brend == 'Nevis':
+    if abs(monitor_areas()[1][0]) == 1080 or abs(monitor_areas()[0][0]) == 1080:
+        im3 = Image.open(IMAGES_PATH + r'\NEVIS1080840.png')
+    else:
+        im3 = Image.open(IMAGES_PATH + r'\NEVIS8401080.png')
+elif brend == 'LenOblFarm':
+    if abs(monitor_areas()[1][0]) == 1080 or abs(monitor_areas()[0][0]) == 1080:
+        im3 = Image.open(IMAGES_PATH + r'\LOF1080840.png')
+    else:
+        im3 = Image.open(IMAGES_PATH + r'\LOF8401080.png')
 else:
-    im3 = Image.open(IMAGES_PATH + r'\Ресурс 8.jpg')
+    print('\nНе удалось определить бренд аптеки')
 if abs(monitor_areas()[1][0]) == 1080 or abs(monitor_areas()[0][0]) == 1080:
     label_big_slides = tk.Label(main_window, width=1080, image=default_big_slide_back)  # Лейбл под слайдер в простое
 else:
