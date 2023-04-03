@@ -1,5 +1,4 @@
 import os
-import socket
 import sys
 import time
 import tkinter as tk
@@ -13,7 +12,6 @@ from itertools import cycle
 from tkinter.font import nametofont
 from ftplib import FTP
 from winreg import *
-import requests
 
 # def is_admin():
 #     try:  # Пытаемся вернуть True admin-mode
@@ -80,6 +78,31 @@ from qrcode.image.styledpil import StyledPilImage
 from qrcode.image.styles.moduledrawers import RoundedModuleDrawer
 from qrcode.image.styles.colormasks import RadialGradiantColorMask
 
+try:
+    import requests
+except ImportError:
+    print('\n\nОбнаружено отсутствие библиотеки requests\nНачинаю скачивание...')
+    subprocess.run('pip install requests')
+    # os.execv(sys.executable, [sys.executable] + sys.argv)
+    subprocess.Popen([sys.executable, *sys.argv])
+    time.sleep(1)
+    sys.exit(0)
+
+import requests
+
+try:
+    import datetime
+except ImportError:
+    print('\n\nОбнаружено отсутствие библиотеки datetime\nНачинаю скачивание...')
+    subprocess.run('pip install datetime')
+    # os.execv(sys.executable, [sys.executable] + sys.argv)
+    subprocess.Popen([sys.executable, *sys.argv])
+    time.sleep(1)
+    sys.exit(0)
+
+import datetime
+
+day = datetime.datetime.today().isoweekday()
 frame_x = 1
 frame_y = 1
 QR_LIST = []
@@ -109,7 +132,7 @@ CATEGORY_SEC_DICT_KEY = 'category'
 DEVICE_SEC_DICT_KEY = 'device'
 BREND_SEC_DICT_KEY = 'brend'
 VERSION_SEC_DICT_KEY = 'version'
-APP_VERSION = '1.8'
+APP_VERSION = '2.0'
 start_time = None
 
 print(
@@ -135,13 +158,13 @@ def Startup():
 
 
 def ftp_updater():
-    global thread, thread_update
+    global thread, thread_update, SLIDER_PATH
     if not os.path.exists(ROOT_PATH + r'\last_ftp_time.txt'):  # Если нет файла со временем - создаем
         with open(ROOT_PATH + r'\last_ftp_time.txt', 'w') as local_time_file:
             local_time_file.write('0')
-    with open(ROOT_PATH + r'\last_ftp_time.txt',
-              'r') as local_time_file:  # Читаем время, когда были скачаны файлы с сервера
-        last_ftp_time = int(local_time_file.readline())
+    if not os.path.exists(ROOT_PATH + r'\last_ftp_time_sale.txt'):  # Если нет файла со временем - создаем
+        with open(ROOT_PATH + r'\last_ftp_time_sale.txt', 'w') as local_time_file_sale:
+            local_time_file_sale.write('0')
 
     try:
         with open(PATH_TO_SETTINGS) as config:  # Читаем файлы настроек и отправляем данные на сервер
@@ -161,6 +184,24 @@ def ftp_updater():
                 BREND_SEC_DICT_KEY: brend,
                 VERSION_SEC_DICT_KEY: version
             }
+
+            if brend == 'Nevis' and day == 2:
+                SLIDER_PATH = ROOT_PATH + r'\slider_sale'
+            elif brend == 'Nevis' and day != 2:
+                SLIDER_PATH = ROOT_PATH + r'\slider'
+            elif brend == 'LenOblFarm' and day == 5:
+                SLIDER_PATH = ROOT_PATH + r'\slider_sale'
+            elif brend == 'LenOblFarm' and day != 5:
+                SLIDER_PATH = ROOT_PATH + r'\slider'
+
+            if SLIDER_PATH.endswith('sale'):
+                with open(ROOT_PATH + r'\last_ftp_time_sale.txt',
+                          'r') as local_time_file_sale:  # Читаем время, когда были скачаны файлы с сервера
+                    last_ftp_time = int(local_time_file_sale.readline())
+            else:
+                with open(ROOT_PATH + r'\last_ftp_time.txt',
+                          'r') as local_time_file:  # Читаем время, когда были скачаны файлы с сервера
+                    last_ftp_time = int(local_time_file.readline())
             try:
                 send_data(second_monitor_dict)
             except Exception:
@@ -172,7 +213,7 @@ def ftp_updater():
 
     try:
         with FTP(host='mail.nevis.spb.ru', user='2monitor', passwd='WWGFk3Se0d') as ftp:  # Соединяемся с FTP сервером
-            if config_data.get('brend') == 'Nevis':  # Если настройка Невис
+            if config_data.get('brend') == 'Nevis' and day != 2:  # Если настройка Невис и не вторник
                 for name, facts in ftp.mlsd():
                     if name == 'Nevis':
                         servertime = facts.get('modify')  # Узнаем время изменения папки на сервере
@@ -206,7 +247,41 @@ def ftp_updater():
                     except Exception:
                         pass
                     sys.exit(0)
-            elif config_data.get('brend') == 'LenOblFarm':
+            elif config_data.get('brend') == 'Nevis' and day == 2:  # Если настройка Невис и вторник
+                for name, facts in ftp.mlsd():
+                    if name == 'NevisSale':
+                        servertime = facts.get('modify')  # Узнаем время изменения папки на сервере
+                if int(servertime) > last_ftp_time:  # Если время изменения папки на сервере больше, чем последнее время в файле
+                    for f in os.listdir(SLIDER_PATH):
+                        os.remove(os.path.join(SLIDER_PATH, f))  # Удаляем все файлы
+                    ftp.cwd('NevisSale')  # Меняем каталог на Невис распродажа
+                    filenames = ftp.nlst()  # Узнаем список файлов
+                    for i in filenames:
+                        if i == '.':
+                            filenames.remove(i)  # Удаляем папку .
+                    for i in filenames:
+                        if i == '..':
+                            filenames.remove(i)  # Удаляем папку ..
+                    for filename in filenames:
+                        host_file = os.path.join(SLIDER_PATH, filename)
+                        with open(host_file, 'wb') as local_file:
+                            ftp.retrbinary('RETR ' + filename, local_file.write)  # Скачиваем файлы
+                    for f in os.listdir(SLIDER_PATH):
+                        if f == 'Thumbs.db':
+                            os.remove(os.path.join(SLIDER_PATH, f))  # Удаляем файл Thumbs.db
+                    with open(ROOT_PATH + r'\last_ftp_time_sale.txt',
+                              'w') as local_time_file:  # Записываем в файл время скачивания
+                        local_time_file.write(str(servertime))
+                    # os.execv(sys.executable, [sys.executable] + sys.argv)  # Перезапускаемся если скачали новые файлы
+                    subprocess.Popen([sys.executable, *sys.argv])
+                    time.sleep(1)
+                    try:
+                        thread.cancel()
+                        thread_update.cancel()
+                    except Exception:
+                        pass
+                    sys.exit(0)
+            elif config_data.get('brend') == 'LenOblFarm' and day != 5:
                 for name, facts in ftp.mlsd():
                     if name == 'LenOblFarm':
                         servertime = facts.get('modify')
@@ -229,6 +304,39 @@ def ftp_updater():
                         if f == 'Thumbs.db':
                             os.remove(os.path.join(SLIDER_PATH, f))
                     with open(ROOT_PATH + r'\last_ftp_time.txt', 'w') as local_time_file:
+                        local_time_file.write(str(servertime))
+                    # os.execv(sys.executable, [sys.executable] + sys.argv)
+                    subprocess.Popen([sys.executable, *sys.argv])
+                    time.sleep(1)
+                    try:
+                        thread.cancel()
+                        thread_update.cancel()
+                    except Exception:
+                        pass
+                    sys.exit(0)
+            elif config_data.get('brend') == 'LenOblFarm' and day == 5:
+                for name, facts in ftp.mlsd():
+                    if name == 'LenOblFarmSale':
+                        servertime = facts.get('modify')
+                if int(servertime) > last_ftp_time:
+                    for f in os.listdir(SLIDER_PATH):
+                        os.remove(os.path.join(SLIDER_PATH, f))
+                    ftp.cwd('LenOblFarmSale')
+                    filenames = ftp.nlst()
+                    for i in filenames:
+                        if i == '.':
+                            filenames.remove(i)
+                    for i in filenames:
+                        if i == '..':
+                            filenames.remove(i)
+                    for filename in filenames:
+                        host_file = os.path.join(SLIDER_PATH, filename)
+                        with open(host_file, 'wb') as local_file:
+                            ftp.retrbinary('RETR ' + filename, local_file.write)
+                    for f in os.listdir(SLIDER_PATH):
+                        if f == 'Thumbs.db':
+                            os.remove(os.path.join(SLIDER_PATH, f))
+                    with open(ROOT_PATH + r'\last_ftp_time_sale.txt', 'w') as local_time_file:
                         local_time_file.write(str(servertime))
                     # os.execv(sys.executable, [sys.executable] + sys.argv)
                     subprocess.Popen([sys.executable, *sys.argv])
@@ -268,11 +376,16 @@ def program_updater():
 
 
 program_updater()  # Вызываем функцию проверки обновления скрипта
+
+# Создаем отсутствующие папки
 try:
-    if not os.path.exists(SLIDER_PATH):
-        os.mkdir(SLIDER_PATH)
+    if not os.path.exists(ROOT_PATH + r'\slider'):
+        os.mkdir(ROOT_PATH + r'\slider')
+    if not os.path.exists(ROOT_PATH + r'\slider_sale'):
+        os.mkdir(ROOT_PATH + r'\slider_sale')
 except Exception:
     pass
+
 ftp_updater()  # Вызываем функцию проверки и скачивания файлов с сервера
 
 # Функции для определения геометрии экранов
@@ -330,7 +443,8 @@ def monitor_areas():
     return retval
 
 
-def update_treeview_text():  # Анимация цвета текста
+# Анимация цвета текста
+def update_treeview_text():
     global current_step
     treeview_purchase.yview_scroll(number=1, what='units')
     t = (1.0 / frames_per_second) * current_step
@@ -345,18 +459,21 @@ def update_treeview_text():  # Анимация цвета текста
         current_step = 0
 
 
-def interpolate(color_a, color_b, t):  # Интерполяция цвета
+# Интерполяция цвета
+def interpolate(color_a, color_b, t):
     return tuple(int(k + (b - k) * t) for k, b in zip(color_a, color_b))
 
 
-def size_checker(label):  # Получает размеры
+# Получает размеры
+def size_checker(label):
     global frame_x, frame_y
     window.update_idletasks()
     frame_x = label.winfo_width()
     frame_y = label.winfo_height()
 
 
-def qr_maker():  # Делает QR-код
+# Делает QR-код
+def qr_maker():
     global QR_LIST
     with open(ROOT_PATH + r'\qr.txt', encoding='utf-8') as qr_file:
         href = qr_file.readline().split()
@@ -376,7 +493,8 @@ def qr_maker():  # Делает QR-код
         return False
 
 
-def show_slides():  # Слайдер
+# Слайдер
+def show_slides():
     if qr_maker() is False:
         label_qr.pack_forget()
         image_object = next(resize_image_files)
@@ -391,18 +509,20 @@ def show_slides():  # Слайдер
         window.after(5000, show_slides)
 
 
-def _fixed_map(option, style1):  # Цвет текста в строках Treeview
+# Цвет текста в строках Treeview
+def _fixed_map(option, style1):
     return [elm for elm in style1.map("Treeview", query_opt=option) if elm[:2] != ("!disabled", "!selected")]
 
 
-def set_theme(bg, fg):  # Цвет текста в строках Treeview
+def set_theme(bg, fg):
     style1 = ttk.Style()
     style1.theme_use("clam")
     style1.map("Treeview", foreground=_fixed_map("foreground", style1), background=_fixed_map("background", style1))
     style1.configure("Treeview", background=bg, fieldbackground=bg, foreground=fg)
 
 
-def deleter():  # Очищает Treeview
+# Очищает Treeview
+def deleter():
     for iid in id_list:
         treeview_purchase.delete(iid)
     id_list.clear()
@@ -414,7 +534,8 @@ def deleter():  # Очищает Treeview
     id_oplat.clear()
 
 
-def writer():  # Заполняет Treeview если файл изменился
+# Заполняет Treeview если файл изменился
+def writer():
     global last_time
     i = 1  # Нумерация строк
     try:
@@ -510,6 +631,7 @@ except IndexError:
 
 list_fonts = list(font.families())
 
+# Проверка на установку шрифтов
 if 'Montserrat' not in list_fonts:
     print(
         f'\n\nОшибка! Не установлен шрифт "Montserrat"\n\nУстановите шрифт из папки: {ROOT_PATH}\n\nПрограмма будет автоматически закрыта через 15 сек.')
@@ -691,7 +813,13 @@ elif brend == 'LenOblFarm':
     else:
         im3 = Image.open(IMAGES_PATH + r'\LOF8401080.png')
 else:
+    im3 = None
     print('\nНе удалось определить бренд аптеки')
+    thread.cancel()
+    thread_update.cancel()
+    time.sleep(10.0)
+    sys.exit()
+
 if abs(monitor_areas()[1][0]) == 1080 or abs(monitor_areas()[0][0]) == 1080:
     label_big_slides = tk.Label(main_window, width=1080, image=default_big_slide_back)  # Лейбл под слайдер в простое
 else:
