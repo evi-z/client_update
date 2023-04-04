@@ -132,7 +132,7 @@ CATEGORY_SEC_DICT_KEY = 'category'
 DEVICE_SEC_DICT_KEY = 'device'
 BREND_SEC_DICT_KEY = 'brend'
 VERSION_SEC_DICT_KEY = 'version'
-APP_VERSION = '2.0'
+APP_VERSION = '2.1'
 start_time = None
 
 print(
@@ -158,7 +158,8 @@ def Startup():
 
 
 def ftp_updater():
-    global thread, thread_update, SLIDER_PATH
+    global thread, thread_update, SLIDER_PATH, day
+    day = datetime.datetime.today().isoweekday()
     if not os.path.exists(ROOT_PATH + r'\last_ftp_time.txt'):  # Если нет файла со временем - создаем
         with open(ROOT_PATH + r'\last_ftp_time.txt', 'w') as local_time_file:
             local_time_file.write('0')
