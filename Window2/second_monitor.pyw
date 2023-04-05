@@ -54,7 +54,7 @@ from winreg import *
 try:
     import PIL
 except ImportError:
-    print('\n\nОбнаружено отсутствие библиотеки pillow\nНачинаю скачивание...')
+    print('Обнаружено отсутствие библиотеки pillow\nНачинаю скачивание...\n\n')
     subprocess.run('pip install pillow')
     # os.execv(sys.executable, [sys.executable] + sys.argv)
     subprocess.Popen([sys.executable, *sys.argv])
@@ -66,7 +66,7 @@ from PIL import Image, ImageTk
 try:
     import qrcode
 except ImportError:
-    print('\n\nОбнаружено отсутствие библиотеки qrcode\nНачинаю скачивание...')
+    print('Обнаружено отсутствие библиотеки qrcode\nНачинаю скачивание...\n\n')
     subprocess.run('pip install qrcode')
     # os.execv(sys.executable, [sys.executable] + sys.argv)
     subprocess.Popen([sys.executable, *sys.argv])
@@ -81,7 +81,7 @@ from qrcode.image.styles.colormasks import RadialGradiantColorMask
 try:
     import requests
 except ImportError:
-    print('\n\nОбнаружено отсутствие библиотеки requests\nНачинаю скачивание...')
+    print('Обнаружено отсутствие библиотеки requests\nНачинаю скачивание...\n\n')
     subprocess.run('pip install requests')
     # os.execv(sys.executable, [sys.executable] + sys.argv)
     subprocess.Popen([sys.executable, *sys.argv])
@@ -93,7 +93,7 @@ import requests
 try:
     import datetime
 except ImportError:
-    print('\n\nОбнаружено отсутствие библиотеки datetime\nНачинаю скачивание...')
+    print('Обнаружено отсутствие библиотеки datetime\nНачинаю скачивание...\n\n')
     subprocess.run('pip install datetime')
     # os.execv(sys.executable, [sys.executable] + sys.argv)
     subprocess.Popen([sys.executable, *sys.argv])
@@ -102,6 +102,7 @@ except ImportError:
 
 import datetime
 
+sys.stderr, sys.stdout = open('stderr.log', 'w'), open('stdout.log', 'w')
 day = datetime.datetime.today().isoweekday()
 frame_x = 1
 frame_y = 1
@@ -117,7 +118,7 @@ current_step = 0
 last_time = 0
 config_data = {}
 PathFile = os.path.abspath(__file__)
-ROOT_PATH = PathFile.replace(r'\second_monitor.py', '').strip()
+ROOT_PATH = PathFile.replace(r'\second_monitor.pyw', '').strip()
 IMAGES_PATH = ROOT_PATH + r'\res'
 SLIDER_PATH = ROOT_PATH + r'\slider'
 PATH_TO_FILE = r'C:\output\sm_check.txt'
@@ -132,11 +133,8 @@ CATEGORY_SEC_DICT_KEY = 'category'
 DEVICE_SEC_DICT_KEY = 'device'
 BREND_SEC_DICT_KEY = 'brend'
 VERSION_SEC_DICT_KEY = 'version'
-APP_VERSION = '2.2'
+APP_VERSION = '3.0'
 start_time = None
-
-print(
-    '\n\nПожалуйста, не закрывайте данное окно!\n\nОно отвечает за работу программы второго монитора\n\nВы можете свернуть данное окно')
 
 try:
     start_time = os.path.getmtime(PathFile)
@@ -215,10 +213,10 @@ def ftp_updater():
             try:
                 send_data(second_monitor_dict)
             except Exception:
-                print('Не удалось отправить данные на сервер, следующая попытка через 1 час')
+                print('Не удалось отправить данные на сервер, следующая попытка через 1 час\n\n')
     except FileNotFoundError:
-        print('\nФайл настроек не найден! Создается при первом входе в РМК. Программа будет закрыта через 15 сек.')
-        time.sleep(15.0)
+        print('Файл настроек не найден! Создается при первом входе в РМК. Программа была автоматически закрыта.\n\n')
+        time.sleep(1.0)
         sys.exit(0)
 
     try:
@@ -358,7 +356,7 @@ def ftp_updater():
                         pass
                     sys.exit(0)
     except Exception:
-        print('\n\nОшибка при обращении к файловому серверу.\nСледующая попытка через 1 час.')
+        print('Ошибка при обращении к файловому серверу.\nСледующая попытка через 1 час.\n\n')
     thread = threading.Timer(3600.0, ftp_updater)  # Проверяем каждый час
     thread.start()
 
@@ -622,6 +620,23 @@ def writer():
 # Инициализация окон
 window = tk.Tk()  # Главное окно
 
+
+#  Закрыть окно
+def close(e):
+    thread.cancel()
+    thread_update.cancel()
+    window.quit()
+
+
+#  Закрыть окно
+def reboot(e):
+    subprocess.Popen([sys.executable, *sys.argv])
+    time.sleep(1)
+    thread.cancel()
+    thread_update.cancel()
+    sys.exit(0)
+
+
 # Установка размеров окон и смещение на второй монитор
 try:
     if abs(monitor_areas()[1][0]) == 1080:  # Вертикальное положение
@@ -633,10 +648,10 @@ try:
     elif abs(monitor_areas()[0][0]) == 1920:
         window.geometry(f'{abs(monitor_areas()[0][0])}x{monitor_areas()[0][3]}-{monitor_areas()[1][2]}+0')
 except IndexError:
-    print('\n\nОшибка! Второй монитор не обнаружен.\n\nПрограмма будет автоматически закрыта через 15 сек.')
+    print('Ошибка! Второй монитор не обнаружен.\n\nПрограмма была автоматически закрыта.\n\n')
     thread.cancel()
     thread_update.cancel()
-    time.sleep(15.0)
+    time.sleep(1.0)
     sys.exit()
 
 list_fonts = list(font.families())
@@ -644,17 +659,17 @@ list_fonts = list(font.families())
 # Проверка на установку шрифтов
 if 'Montserrat' not in list_fonts:
     print(
-        f'\n\nОшибка! Не установлен шрифт "Montserrat"\n\nУстановите шрифт из папки: {ROOT_PATH}\n\nПрограмма будет автоматически закрыта через 15 сек.')
+        f'Ошибка! Не установлен шрифт "Montserrat"\n\nУстановите шрифт из папки: {ROOT_PATH}\n\nПрограмма была автоматически закрыта.\n\n')
     thread.cancel()
     thread_update.cancel()
-    time.sleep(15.0)
+    time.sleep(1.0)
     sys.exit()
 if 'Montserrat Medium' not in list_fonts:
     print(
-        f'\n\nОшибка! Не установлен шрифт "Montserrat Medium"\n\nУстановите шрифт из папки: {ROOT_PATH}\n\nПрограмма будет автоматически закрыта через 15 сек.')
+        f'Ошибка! Не установлен шрифт "Montserrat Medium"\n\nУстановите шрифт из папки: {ROOT_PATH}\n\nПрограмма была автоматически закрыта.\n\n')
     thread.cancel()
     thread_update.cancel()
-    time.sleep(15.0)
+    time.sleep(1.0)
     sys.exit()
 
 # Заголовки окон
@@ -824,10 +839,10 @@ elif brend == 'LenOblFarm':
         im3 = Image.open(IMAGES_PATH + r'\LOF8401080.png')
 else:
     im3 = None
-    print('\nНе удалось определить бренд аптеки')
+    print('Не удалось определить бренд аптеки\n\n')
     thread.cancel()
     thread_update.cancel()
-    time.sleep(10.0)
+    time.sleep(1.0)
     sys.exit()
 
 if abs(monitor_areas()[1][0]) == 1080 or abs(monitor_areas()[0][0]) == 1080:
@@ -896,6 +911,8 @@ try:
     Startup()
 except Exception:
     pass
+window.bind('<Control-Alt-w>', close)
+window.bind('<Control-Alt-r>', reboot)
 check_display_mode()
 show_big_slides()
 show_slides()
