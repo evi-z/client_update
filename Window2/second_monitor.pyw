@@ -102,7 +102,7 @@ except ImportError:
 
 import datetime
 
-sys.stderr, sys.stdout = open('stderr.log', 'w'), open('stdout.log', 'w')
+sys.stderr, sys.stdout = open('stderr.log', 'a'), open('stdout.log', 'a')
 day = datetime.datetime.today().isoweekday()
 frame_x = 1
 frame_y = 1
@@ -133,8 +133,9 @@ CATEGORY_SEC_DICT_KEY = 'category'
 DEVICE_SEC_DICT_KEY = 'device'
 BREND_SEC_DICT_KEY = 'brend'
 VERSION_SEC_DICT_KEY = 'version'
-APP_VERSION = '3.0'
+APP_VERSION = '3.1'
 start_time = None
+
 
 try:
     start_time = os.path.getmtime(PathFile)
@@ -159,14 +160,13 @@ def ftp_updater():
     global thread, thread_update, SLIDER_PATH, day
     now_day = datetime.datetime.today().isoweekday()
     if now_day != day:
+        time.sleep(1)
         try:
             thread.cancel()
             thread_update.cancel()
         except Exception:
             pass
-        subprocess.Popen([sys.executable, *sys.argv])
-        time.sleep(1)
-        sys.exit(0)
+        os.execv(sys.executable, [sys.executable] + sys.argv)
     if not os.path.exists(ROOT_PATH + r'\last_ftp_time.txt'):  # Если нет файла со временем - создаем
         with open(ROOT_PATH + r'\last_ftp_time.txt', 'w') as local_time_file:
             local_time_file.write('0')
@@ -210,13 +210,18 @@ def ftp_updater():
                 with open(ROOT_PATH + r'\last_ftp_time.txt',
                           'r') as local_time_file:  # Читаем время, когда были скачаны файлы с сервера
                     last_ftp_time = int(local_time_file.readline())
-            try:
-                send_data(second_monitor_dict)
-            except Exception:
-                print('Не удалось отправить данные на сервер, следующая попытка через 1 час\n\n')
+        try:
+            send_data(second_monitor_dict)
+        except Exception:
+            print('Не удалось отправить данные на сервер, следующая попытка через 1 час\n\n')
     except FileNotFoundError:
         print('Файл настроек не найден! Создается при первом входе в РМК. Программа была автоматически закрыта.\n\n')
-        time.sleep(1.0)
+        time.sleep(1)
+        try:
+            thread.cancel()
+            thread_update.cancel()
+        except Exception:
+            pass
         sys.exit(0)
 
     try:
@@ -246,15 +251,13 @@ def ftp_updater():
                     with open(ROOT_PATH + r'\last_ftp_time.txt',
                               'w') as local_time_file:  # Записываем в файл время скачивания
                         local_time_file.write(str(servertime))
-                    # os.execv(sys.executable, [sys.executable] + sys.argv)  # Перезапускаемся если скачали новые файлы
-                    subprocess.Popen([sys.executable, *sys.argv])
                     time.sleep(1)
                     try:
                         thread.cancel()
                         thread_update.cancel()
                     except Exception:
                         pass
-                    sys.exit(0)
+                    os.execv(sys.executable, [sys.executable] + sys.argv)
             elif config_data.get('brend') == 'Nevis' and day == 2:  # Если настройка Невис и вторник
                 for name, facts in ftp.mlsd():
                     if name == 'NevisSale':
@@ -280,15 +283,13 @@ def ftp_updater():
                     with open(ROOT_PATH + r'\last_ftp_time_sale.txt',
                               'w') as local_time_file:  # Записываем в файл время скачивания
                         local_time_file.write(str(servertime))
-                    # os.execv(sys.executable, [sys.executable] + sys.argv)  # Перезапускаемся если скачали новые файлы
-                    subprocess.Popen([sys.executable, *sys.argv])
                     time.sleep(1)
                     try:
                         thread.cancel()
                         thread_update.cancel()
                     except Exception:
                         pass
-                    sys.exit(0)
+                    os.execv(sys.executable, [sys.executable] + sys.argv)
             elif config_data.get('brend') == 'LenOblFarm' and day != 5:
                 for name, facts in ftp.mlsd():
                     if name == 'LenOblFarm':
@@ -313,15 +314,13 @@ def ftp_updater():
                             os.remove(os.path.join(SLIDER_PATH, f))
                     with open(ROOT_PATH + r'\last_ftp_time.txt', 'w') as local_time_file:
                         local_time_file.write(str(servertime))
-                    # os.execv(sys.executable, [sys.executable] + sys.argv)
-                    subprocess.Popen([sys.executable, *sys.argv])
                     time.sleep(1)
                     try:
                         thread.cancel()
                         thread_update.cancel()
                     except Exception:
                         pass
-                    sys.exit(0)
+                    os.execv(sys.executable, [sys.executable] + sys.argv)
             elif config_data.get('brend') == 'LenOblFarm' and day == 5:
                 for name, facts in ftp.mlsd():
                     if name == 'LenOblFarmSale':
@@ -346,18 +345,16 @@ def ftp_updater():
                             os.remove(os.path.join(SLIDER_PATH, f))
                     with open(ROOT_PATH + r'\last_ftp_time_sale.txt', 'w') as local_time_file:
                         local_time_file.write(str(servertime))
-                    # os.execv(sys.executable, [sys.executable] + sys.argv)
-                    subprocess.Popen([sys.executable, *sys.argv])
                     time.sleep(1)
                     try:
                         thread.cancel()
                         thread_update.cancel()
                     except Exception:
                         pass
-                    sys.exit(0)
+                    os.execv(sys.executable, [sys.executable] + sys.argv)
     except Exception:
         print('Ошибка при обращении к файловому серверу.\nСледующая попытка через 1 час.\n\n')
-    thread = threading.Timer(3600.0, ftp_updater)  # Проверяем каждый час
+    thread = threading.Timer(60.0, ftp_updater)  # Проверяем каждый час
     thread.start()
 
 
@@ -366,15 +363,13 @@ def program_updater():
     try:
         now_time = os.path.getmtime(PathFile)
         if start_time != now_time:
-            # os.execv(sys.executable, [sys.executable] + sys.argv)  # Перезапускаемся если обновился скрипт
-            subprocess.Popen([sys.executable, *sys.argv])
             time.sleep(1)
             try:
                 thread.cancel()
                 thread_update.cancel()
             except Exception:
                 pass
-            sys.exit(0)
+            os.execv(sys.executable, [sys.executable] + sys.argv)
         else:
             pass
     except Exception:
@@ -630,11 +625,10 @@ def close(e):
 
 #  Закрыть окно
 def reboot(e):
-    subprocess.Popen([sys.executable, *sys.argv])
     time.sleep(1)
     thread.cancel()
     thread_update.cancel()
-    sys.exit(0)
+    os.execv(sys.executable, [sys.executable] + sys.argv)
 
 
 # Установка размеров окон и смещение на второй монитор
@@ -649,10 +643,12 @@ try:
         window.geometry(f'{abs(monitor_areas()[0][0])}x{monitor_areas()[0][3]}-{monitor_areas()[1][2]}+0')
 except IndexError:
     print('Ошибка! Второй монитор не обнаружен.\n\nПрограмма была автоматически закрыта.\n\n')
-    thread.cancel()
-    thread_update.cancel()
-    time.sleep(1.0)
-    sys.exit()
+    try:
+        thread.cancel()
+        thread_update.cancel()
+    except Exception:
+        pass
+    sys.exit(0)
 
 list_fonts = list(font.families())
 
@@ -660,17 +656,21 @@ list_fonts = list(font.families())
 if 'Montserrat' not in list_fonts:
     print(
         f'Ошибка! Не установлен шрифт "Montserrat"\n\nУстановите шрифт из папки: {ROOT_PATH}\n\nПрограмма была автоматически закрыта.\n\n')
-    thread.cancel()
-    thread_update.cancel()
-    time.sleep(1.0)
-    sys.exit()
+    try:
+        thread.cancel()
+        thread_update.cancel()
+    except Exception:
+        pass
+    sys.exit(0)
 if 'Montserrat Medium' not in list_fonts:
     print(
         f'Ошибка! Не установлен шрифт "Montserrat Medium"\n\nУстановите шрифт из папки: {ROOT_PATH}\n\nПрограмма была автоматически закрыта.\n\n')
-    thread.cancel()
-    thread_update.cancel()
-    time.sleep(1.0)
-    sys.exit()
+    try:
+        thread.cancel()
+        thread_update.cancel()
+    except Exception:
+        pass
+    sys.exit(0)
 
 # Заголовки окон
 window.title('')
@@ -840,10 +840,13 @@ elif brend == 'LenOblFarm':
 else:
     im3 = None
     print('Не удалось определить бренд аптеки\n\n')
-    thread.cancel()
-    thread_update.cancel()
-    time.sleep(1.0)
-    sys.exit()
+    time.sleep(1)
+    try:
+        thread.cancel()
+        thread_update.cancel()
+    except Exception:
+        pass
+    sys.exit(0)
 
 if abs(monitor_areas()[1][0]) == 1080 or abs(monitor_areas()[0][0]) == 1080:
     label_big_slides = tk.Label(main_window, width=1080, image=default_big_slide_back)  # Лейбл под слайдер в простое
