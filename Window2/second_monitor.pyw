@@ -133,7 +133,7 @@ CATEGORY_SEC_DICT_KEY = 'category'
 DEVICE_SEC_DICT_KEY = 'device'
 BREND_SEC_DICT_KEY = 'brend'
 VERSION_SEC_DICT_KEY = 'version'
-APP_VERSION = '3.1'
+APP_VERSION = '3.2'
 start_time = None
 
 
@@ -166,6 +166,7 @@ def ftp_updater():
             thread_update.cancel()
         except Exception:
             pass
+        print('close on 169')
         os.execv(sys.executable, [sys.executable] + sys.argv)
     if not os.path.exists(ROOT_PATH + r'\last_ftp_time.txt'):  # Если нет файла со временем - создаем
         with open(ROOT_PATH + r'\last_ftp_time.txt', 'w') as local_time_file:
@@ -222,6 +223,7 @@ def ftp_updater():
             thread_update.cancel()
         except Exception:
             pass
+        print('close on 226')
         sys.exit(0)
 
     try:
@@ -257,6 +259,7 @@ def ftp_updater():
                         thread_update.cancel()
                     except Exception:
                         pass
+                    print('close on 262')
                     os.execv(sys.executable, [sys.executable] + sys.argv)
             elif config_data.get('brend') == 'Nevis' and day == 2:  # Если настройка Невис и вторник
                 for name, facts in ftp.mlsd():
@@ -289,6 +292,7 @@ def ftp_updater():
                         thread_update.cancel()
                     except Exception:
                         pass
+                    print('close on 295')
                     os.execv(sys.executable, [sys.executable] + sys.argv)
             elif config_data.get('brend') == 'LenOblFarm' and day != 5:
                 for name, facts in ftp.mlsd():
@@ -320,6 +324,7 @@ def ftp_updater():
                         thread_update.cancel()
                     except Exception:
                         pass
+                    print('close on 327')
                     os.execv(sys.executable, [sys.executable] + sys.argv)
             elif config_data.get('brend') == 'LenOblFarm' and day == 5:
                 for name, facts in ftp.mlsd():
@@ -351,10 +356,11 @@ def ftp_updater():
                         thread_update.cancel()
                     except Exception:
                         pass
+                    print('close on 359')
                     os.execv(sys.executable, [sys.executable] + sys.argv)
     except Exception:
         print('Ошибка при обращении к файловому серверу.\nСледующая попытка через 1 час.\n\n')
-    thread = threading.Timer(60.0, ftp_updater)  # Проверяем каждый час
+    thread = threading.Timer(3600.0, ftp_updater)  # Проверяем каждый час
     thread.start()
 
 
@@ -369,6 +375,7 @@ def program_updater():
                 thread_update.cancel()
             except Exception:
                 pass
+            print('close on 378')
             os.execv(sys.executable, [sys.executable] + sys.argv)
         else:
             pass
@@ -620,6 +627,7 @@ window = tk.Tk()  # Главное окно
 def close(e):
     thread.cancel()
     thread_update.cancel()
+    print('close on 630')
     window.quit()
 
 
@@ -628,6 +636,7 @@ def reboot(e):
     time.sleep(1)
     thread.cancel()
     thread_update.cancel()
+    print('close on 639')
     os.execv(sys.executable, [sys.executable] + sys.argv)
 
 
@@ -648,6 +657,7 @@ except IndexError:
         thread_update.cancel()
     except Exception:
         pass
+    print('close on 658')
     sys.exit(0)
 
 list_fonts = list(font.families())
@@ -670,6 +680,7 @@ if 'Montserrat Medium' not in list_fonts:
         thread_update.cancel()
     except Exception:
         pass
+    print('close on 681')
     sys.exit(0)
 
 # Заголовки окон
@@ -840,12 +851,14 @@ elif brend == 'LenOblFarm':
 else:
     im3 = None
     print('Не удалось определить бренд аптеки\n\n')
+    subprocess.Popen([sys.executable, *sys.argv])
     time.sleep(1)
     try:
         thread.cancel()
         thread_update.cancel()
     except Exception:
         pass
+    print('close on 859')
     sys.exit(0)
 
 if abs(monitor_areas()[1][0]) == 1080 or abs(monitor_areas()[0][0]) == 1080:
