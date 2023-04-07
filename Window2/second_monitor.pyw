@@ -12,7 +12,6 @@ from itertools import cycle
 from tkinter.font import nametofont
 from ftplib import FTP
 from winreg import *
-
 # def is_admin():
 #     try:  # Пытаемся вернуть True admin-mode
 #         return ctypes.windll.shell32.IsUserAnAdmin()
@@ -60,7 +59,6 @@ except ImportError:
     subprocess.Popen([sys.executable, *sys.argv])
     time.sleep(1)
     sys.exit(0)
-
 from PIL import Image, ImageTk
 
 try:
@@ -72,12 +70,10 @@ except ImportError:
     subprocess.Popen([sys.executable, *sys.argv])
     time.sleep(1)
     sys.exit(0)
-
 import qrcode
 from qrcode.image.styledpil import StyledPilImage
 from qrcode.image.styles.moduledrawers import RoundedModuleDrawer
 from qrcode.image.styles.colormasks import RadialGradiantColorMask
-
 try:
     import requests
 except ImportError:
@@ -87,7 +83,6 @@ except ImportError:
     subprocess.Popen([sys.executable, *sys.argv])
     time.sleep(1)
     sys.exit(0)
-
 import requests
 
 try:
@@ -101,8 +96,7 @@ except ImportError:
     sys.exit(0)
 
 import datetime
-
-sys.stderr, sys.stdout = open('stderr.log', 'a'), open('stdout.log', 'a')
+# sys.stderr, sys.stdout = open('stderr.log', 'a'), open('stdout.log', 'a')
 day = datetime.datetime.today().isoweekday()
 frame_x = 1
 frame_y = 1
@@ -133,9 +127,8 @@ CATEGORY_SEC_DICT_KEY = 'category'
 DEVICE_SEC_DICT_KEY = 'device'
 BREND_SEC_DICT_KEY = 'brend'
 VERSION_SEC_DICT_KEY = 'version'
-APP_VERSION = '3.3'
+APP_VERSION = '3.4'
 start_time = None
-
 
 try:
     start_time = os.path.getmtime(PathFile)
