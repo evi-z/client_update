@@ -133,7 +133,7 @@ CATEGORY_SEC_DICT_KEY = 'category'
 DEVICE_SEC_DICT_KEY = 'device'
 BREND_SEC_DICT_KEY = 'brend'
 VERSION_SEC_DICT_KEY = 'version'
-APP_VERSION = '3.2'
+APP_VERSION = '3.3'
 start_time = None
 
 
@@ -167,7 +167,7 @@ def ftp_updater():
         except Exception:
             pass
         print('close on 169')
-        os.execv(sys.executable, [sys.executable] + sys.argv)
+        os.execv(sys.executable, ['python'] + [PathFile])
     if not os.path.exists(ROOT_PATH + r'\last_ftp_time.txt'):  # Если нет файла со временем - создаем
         with open(ROOT_PATH + r'\last_ftp_time.txt', 'w') as local_time_file:
             local_time_file.write('0')
@@ -260,7 +260,7 @@ def ftp_updater():
                     except Exception:
                         pass
                     print('close on 262')
-                    os.execv(sys.executable, [sys.executable] + sys.argv)
+                    os.execv(sys.executable, ['python'] + [PathFile])
             elif config_data.get('brend') == 'Nevis' and day == 2:  # Если настройка Невис и вторник
                 for name, facts in ftp.mlsd():
                     if name == 'NevisSale':
@@ -293,7 +293,7 @@ def ftp_updater():
                     except Exception:
                         pass
                     print('close on 295')
-                    os.execv(sys.executable, [sys.executable] + sys.argv)
+                    os.execv(sys.executable, ['python'] + [PathFile])
             elif config_data.get('brend') == 'LenOblFarm' and day != 5:
                 for name, facts in ftp.mlsd():
                     if name == 'LenOblFarm':
@@ -325,7 +325,7 @@ def ftp_updater():
                     except Exception:
                         pass
                     print('close on 327')
-                    os.execv(sys.executable, [sys.executable] + sys.argv)
+                    os.execv(sys.executable, ['python'] + [PathFile])
             elif config_data.get('brend') == 'LenOblFarm' and day == 5:
                 for name, facts in ftp.mlsd():
                     if name == 'LenOblFarmSale':
@@ -357,7 +357,7 @@ def ftp_updater():
                     except Exception:
                         pass
                     print('close on 359')
-                    os.execv(sys.executable, [sys.executable] + sys.argv)
+                    os.execv(sys.executable, ['python'] + [PathFile])
     except Exception:
         print('Ошибка при обращении к файловому серверу.\nСледующая попытка через 1 час.\n\n')
     thread = threading.Timer(3600.0, ftp_updater)  # Проверяем каждый час
@@ -366,20 +366,16 @@ def ftp_updater():
 
 def program_updater():
     global start_time, thread_update, thread
-    try:
-        now_time = os.path.getmtime(PathFile)
-        if start_time != now_time:
-            time.sleep(1)
-            try:
-                thread.cancel()
-                thread_update.cancel()
-            except Exception:
-                pass
-            print('close on 378')
-            os.execv(sys.executable, [sys.executable] + sys.argv)
-        else:
+    now_time = os.path.getmtime(PathFile)
+    if start_time != now_time:
+        time.sleep(1)
+        try:
+            thread.cancel()
+            thread_update.cancel()
+        except Exception:
             pass
-    except Exception:
+        os.execv(sys.executable, ['python'] + [PathFile])
+    else:
         pass
     thread_update = threading.Timer(30.0, program_updater)
     thread_update.start()
@@ -632,12 +628,11 @@ def close(e):
 
 
 #  Закрыть окно
-def reboot(e):
+def reboot(x):
     time.sleep(1)
     thread.cancel()
     thread_update.cancel()
-    print('close on 639')
-    os.execv(sys.executable, [sys.executable] + sys.argv)
+    os.execv(sys.executable, ['python'] + [PathFile])
 
 
 # Установка размеров окон и смещение на второй монитор
