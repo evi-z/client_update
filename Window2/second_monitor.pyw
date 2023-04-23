@@ -127,7 +127,7 @@ CATEGORY_SEC_DICT_KEY = 'category'
 DEVICE_SEC_DICT_KEY = 'device'
 BREND_SEC_DICT_KEY = 'brend'
 VERSION_SEC_DICT_KEY = 'version'
-APP_VERSION = '3.4.1'
+APP_VERSION = '3.4.2'
 start_time = None
 
 try:
@@ -828,14 +828,14 @@ else:
 default_big_slide_back = ImageTk.PhotoImage(im2)
 if brend == 'Nevis':
     if abs(monitor_areas()[1][0]) == 1080 or abs(monitor_areas()[0][0]) == 1080:
-        im3 = Image.open(IMAGES_PATH + r'\NEVIS1080840.png')
+        im3 = Image.open(IMAGES_PATH + r'\KOMAR1080840.png')
     else:
-        im3 = Image.open(IMAGES_PATH + r'\NEVIS8401080.png')
+        im3 = Image.open(IMAGES_PATH + r'\KOMAR8401080.png')
 elif brend == 'LenOblFarm':
     if abs(monitor_areas()[1][0]) == 1080 or abs(monitor_areas()[0][0]) == 1080:
-        im3 = Image.open(IMAGES_PATH + r'\LOF1080840.png')
+        im3 = Image.open(IMAGES_PATH + r'\KOMAR1080840.png')
     else:
-        im3 = Image.open(IMAGES_PATH + r'\LOF8401080.png')
+        im3 = Image.open(IMAGES_PATH + r'\KOMAR8401080.png')
 else:
     im3 = None
     print('Не удалось определить бренд аптеки\n\n')
