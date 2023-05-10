@@ -8,54 +8,15 @@ import threading
 from tkinter import *
 from tkinter import font
 from tkinter import ttk
-from itertools import cycle
 from tkinter.font import nametofont
 from ftplib import FTP
 from winreg import *
-# def is_admin():
-#     try:  # Пытаемся вернуть True admin-mode
-#         return ctypes.windll.shell32.IsUserAnAdmin()
-#     except:  # Иначе возвращаем False
-#         return False
-#
-#
-# def path_to_script_with_space():
-#     path_to_script = sys.argv[0]  # Пусть к скрипту
-#
-#     if ' ' in path_to_script:  # Если есть пробелы в пути
-#         return True
-#     else:
-#         return False
-#
-#
-# def get_correct_path():
-#     if path_to_script_with_space():  # Если в пути есть пробелы
-#         path_to_script = f'"{sys.argv[0]}"'  # Пишем в кавычках
-#     else:
-#         path_to_script = sys.argv[0]  # Возвращаем как есть
-#
-#     return path_to_script
-#
-#
-# if not is_admin():
-#     path_to_client = get_correct_path()  # Получаем корректный путь до скрипта
-#     arg = sys.argv[1:]  # Аргументы командной строки
-#
-#     argv_to_ex = [path_to_client]  # Список для ShellExecuteW
-#     if arg:  # Если есть аргументы - добавляем
-#         argv_to_ex.extend(arg)
-#
-#     # Перезапускаем интерпретатор с правами админа
-#     ctypes.windll.shell32.ShellExecuteW(0, 'runas', sys.executable, ' '.join(argv_to_ex), None, 1)
-#     sys.exit(0)  # Завершаем работу этого скрипта
-
 
 try:
     import PIL
 except ImportError:
     print('Обнаружено отсутствие библиотеки pillow\nНачинаю скачивание...\n\n')
     subprocess.run('pip install pillow')
-    # os.execv(sys.executable, [sys.executable] + sys.argv)
     subprocess.Popen([sys.executable, *sys.argv])
     time.sleep(1)
     sys.exit(0)
@@ -66,7 +27,6 @@ try:
 except ImportError:
     print('Обнаружено отсутствие библиотеки qrcode\nНачинаю скачивание...\n\n')
     subprocess.run('pip install qrcode')
-    # os.execv(sys.executable, [sys.executable] + sys.argv)
     subprocess.Popen([sys.executable, *sys.argv])
     time.sleep(1)
     sys.exit(0)
@@ -79,7 +39,6 @@ try:
 except ImportError:
     print('Обнаружено отсутствие библиотеки requests\nНачинаю скачивание...\n\n')
     subprocess.run('pip install requests')
-    # os.execv(sys.executable, [sys.executable] + sys.argv)
     subprocess.Popen([sys.executable, *sys.argv])
     time.sleep(1)
     sys.exit(0)
@@ -90,13 +49,12 @@ try:
 except ImportError:
     print('Обнаружено отсутствие библиотеки datetime\nНачинаю скачивание...\n\n')
     subprocess.run('pip install datetime')
-    # os.execv(sys.executable, [sys.executable] + sys.argv)
     subprocess.Popen([sys.executable, *sys.argv])
     time.sleep(1)
     sys.exit(0)
 
 import datetime
-# sys.stderr, sys.stdout = open('stderr.log', 'a'), open('stdout.log', 'a')
+
 day = datetime.datetime.today().isoweekday()
 frame_x = 1
 frame_y = 1
@@ -115,9 +73,10 @@ PathFile = os.path.abspath(__file__)
 ROOT_PATH = PathFile.replace(r'\second_monitor.pyw', '').strip()
 IMAGES_PATH = ROOT_PATH + r'\res'
 SLIDER_PATH = ROOT_PATH + r'\slider'
+SLIDER_PATH_TOP = ROOT_PATH + r'\slider_top'
 PATH_TO_FILE = r'C:\output\sm_check.txt'
 PATH_TO_SETTINGS = r'C:\output\settings.txt'
-# PATH_TO_FILE = fr'{ROOT_PATH}\test.txt'
+# PATH_TO_SETTINGS = fr'{ROOT_PATH}\settings.txt'
 thread = None
 thread_update = None
 host = '78.37.67.153'
@@ -127,13 +86,32 @@ CATEGORY_SEC_DICT_KEY = 'category'
 DEVICE_SEC_DICT_KEY = 'device'
 BREND_SEC_DICT_KEY = 'brend'
 VERSION_SEC_DICT_KEY = 'version'
-APP_VERSION = '3.4.2'
+APP_VERSION = '3.4.3'
 start_time = None
 
 try:
     start_time = os.path.getmtime(PathFile)
 except Exception:
     pass
+
+
+class Slider(tk.Canvas):
+    def __init__(self, master, imagesg, width=1080, height=1080, delay=5000):
+        super().__init__(master, width=width, height=height, bg='black', bd=0, highlightthickness=0)
+        self.images = imagesg
+        self.delay = delay
+        self.current_image = 0
+        self.show_image()
+
+    def show_image(self):
+        image = self.images[self.current_image]
+        self.create_image(0, 0, anchor=tk.NW, image=image, tags="image")
+        self.after(self.delay, self.new_image)
+
+    def new_image(self):
+        self.delete("image")
+        self.current_image = (self.current_image + 1) % len(self.images)
+        self.show_image()
 
 
 def send_data(config_dict: dict):
@@ -167,6 +145,9 @@ def ftp_updater():
     if not os.path.exists(ROOT_PATH + r'\last_ftp_time_sale.txt'):  # Если нет файла со временем - создаем
         with open(ROOT_PATH + r'\last_ftp_time_sale.txt', 'w') as local_time_file_sale:
             local_time_file_sale.write('0')
+    if not os.path.exists(ROOT_PATH + r'\last_ftp_time_top.txt'):  # Если нет файла со временем - создаем
+        with open(ROOT_PATH + r'\last_ftp_time_top.txt', 'w') as local_time_file_top:
+            local_time_file_top.write('0')
 
     try:
         with open(PATH_TO_SETTINGS) as config:  # Читаем файлы настроек и отправляем данные на сервер
@@ -204,6 +185,10 @@ def ftp_updater():
                 with open(ROOT_PATH + r'\last_ftp_time.txt',
                           'r') as local_time_file:  # Читаем время, когда были скачаны файлы с сервера
                     last_ftp_time = int(local_time_file.readline())
+
+            with open(ROOT_PATH + r'\last_ftp_time_top.txt',
+                      'r') as local_time_file_top:  # Читаем время, когда были скачаны файлы с сервера
+                last_ftp_time_top = int(local_time_file_top.readline())
         try:
             send_data(second_monitor_dict)
         except Exception:
@@ -351,6 +336,39 @@ def ftp_updater():
                         pass
                     print('close on 359')
                     os.execv(sys.executable, ['python'] + [PathFile])
+            # Меняем директорию на корень
+            ftp.cwd('..')
+            for name, facts in ftp.mlsd():
+                if name == 'Top':
+                    servertime = facts.get('modify')
+            if int(servertime) > last_ftp_time_top:
+                for f in os.listdir(SLIDER_PATH_TOP):
+                    os.remove(os.path.join(SLIDER_PATH_TOP, f))
+                ftp.cwd('Top')
+                filenames = ftp.nlst()
+                for i in filenames:
+                    if i == '.':
+                        filenames.remove(i)
+                for i in filenames:
+                    if i == '..':
+                        filenames.remove(i)
+                for filename in filenames:
+                    host_file = os.path.join(SLIDER_PATH_TOP, filename)
+                    with open(host_file, 'wb') as local_file:
+                        ftp.retrbinary('RETR ' + filename, local_file.write)
+                for f in os.listdir(SLIDER_PATH_TOP):
+                    if f == 'Thumbs.db':
+                        os.remove(os.path.join(SLIDER_PATH_TOP, f))
+                with open(ROOT_PATH + r'\last_ftp_time_top.txt', 'w') as local_time_file_top:
+                    local_time_file_top.write(str(servertime))
+                time.sleep(1)
+                try:
+                    thread.cancel()
+                    thread_update.cancel()
+                except Exception:
+                    pass
+                print('close on 359')
+                os.execv(sys.executable, ['python'] + [PathFile])
     except Exception:
         print('Ошибка при обращении к файловому серверу.\nСледующая попытка через 1 час.\n\n')
     thread = threading.Timer(3600.0, ftp_updater)  # Проверяем каждый час
@@ -382,6 +400,8 @@ try:
         os.mkdir(ROOT_PATH + r'\slider')
     if not os.path.exists(ROOT_PATH + r'\slider_sale'):
         os.mkdir(ROOT_PATH + r'\slider_sale')
+    if not os.path.exists(ROOT_PATH + r'\slider_top'):
+        os.mkdir(ROOT_PATH + r'\slider_top')
 except Exception:
     pass
 
@@ -490,22 +510,6 @@ def qr_maker():
     else:
         QR_LIST.clear()
         return False
-
-
-# Слайдер
-def show_slides():
-    if qr_maker() is False:
-        label_qr.pack_forget()
-        image_object = next(resize_image_files)
-        label_image.config(image=image_object)
-        window.after(5000, show_slides)
-    else:
-        label_image.pack_forget()
-        label_qr.pack(fill='x')
-        label_image.pack(expand=True, fill='both')
-        image_object = QR_LIST[0]
-        label_image.config(image=image_object)
-        window.after(5000, show_slides)
 
 
 # Цвет текста в строках Treeview
@@ -685,7 +689,7 @@ id_itog = []  # Список id для Treeview_itog
 id_oplat = []  # Список id для Treeview_oplat
 
 #  Фрейм во все главное окно
-main_window = tk.Frame(window, bg='#d6f8ff')
+main_window = tk.Frame(window, bg='black')
 main_window.pack(fill='both', expand=True)
 
 #  Фрейм левый
@@ -787,13 +791,7 @@ if abs(monitor_areas()[1][0]) == 1080 or abs(monitor_areas()[0][0]) == 1080:
     frame_right.pack(fill='both', side="top", expand=True)
 else:
     frame_right = tk.Frame(main_window, borderwidth="0", background='#d6f8ff', width=1080)
-    frame_right.pack(fill='both', side="left", expand=False)
-
-
-def show_big_slides():  # Слайдер
-    image_object = next(resize_big_image_files)
-    label_big_slides.config(image=image_object)
-    window.after(5000, show_big_slides)
+    frame_right.pack(fill='both', side="left", expand=True)
 
 
 #  Лейбл оплата по QR
@@ -826,34 +824,39 @@ if abs(monitor_areas()[1][0]) == 1080 or abs(monitor_areas()[0][0]) == 1080:
 else:
     im2 = Image.open(IMAGES_PATH + r'\default_slide_back1_vertical.png')
 default_big_slide_back = ImageTk.PhotoImage(im2)
-if brend == 'Nevis':
+
+for file in os.listdir(SLIDER_PATH_TOP):
+    img = PIL.Image.open(os.path.join(SLIDER_PATH_TOP, file))
+    wid = img.size[0]
     if abs(monitor_areas()[1][0]) == 1080 or abs(monitor_areas()[0][0]) == 1080:
-        im3 = Image.open(IMAGES_PATH + r'\KOMAR1080840.png')
+        if wid >= 1079:
+            im3 = img
+        else:
+            continue
     else:
-        im3 = Image.open(IMAGES_PATH + r'\KOMAR8401080.png')
-elif brend == 'LenOblFarm':
-    if abs(monitor_areas()[1][0]) == 1080 or abs(monitor_areas()[0][0]) == 1080:
-        im3 = Image.open(IMAGES_PATH + r'\KOMAR1080840.png')
-    else:
-        im3 = Image.open(IMAGES_PATH + r'\KOMAR8401080.png')
-else:
-    im3 = None
-    print('Не удалось определить бренд аптеки\n\n')
-    subprocess.Popen([sys.executable, *sys.argv])
-    time.sleep(1)
-    try:
-        thread.cancel()
-        thread_update.cancel()
-    except Exception:
-        pass
-    print('close on 859')
-    sys.exit(0)
+        if wid <= 841:
+            im3 = img
+        else:
+            continue
 
 if abs(monitor_areas()[1][0]) == 1080 or abs(monitor_areas()[0][0]) == 1080:
-    label_big_slides = tk.Label(main_window, width=1080, image=default_big_slide_back)  # Лейбл под слайдер в простое
+    label_big_slides = tk.Label(main_window, width=1080, background='black')  # Лейбл под слайдер в простое
 else:
-    label_big_slides = tk.Label(main_window, width=1076, image=default_big_slide_back)  # Лейбл под слайдер в простое
-default_cashback = ImageTk.PhotoImage(im3)
+    label_big_slides = tk.Label(main_window, width=1080, background='black')  # Лейбл под слайдер в простое
+try:
+    default_cashback = ImageTk.PhotoImage(im3)
+except Exception:
+    if brend == 'Nevis':
+        if abs(monitor_areas()[1][0]) == 1080 or abs(monitor_areas()[0][0]) == 1080:
+            im3 = Image.open(IMAGES_PATH + r'\KOMAR1080840.png')
+        else:
+            im3 = Image.open(IMAGES_PATH + r'\KOMAR8401080.png')
+    elif brend == 'LenOblFarm':
+        if abs(monitor_areas()[1][0]) == 1080 or abs(monitor_areas()[0][0]) == 1080:
+            im3 = Image.open(IMAGES_PATH + r'\KOMAR1080840.png')
+        else:
+            im3 = Image.open(IMAGES_PATH + r'\KOMAR8401080.png')
+    default_cashback = ImageTk.PhotoImage(im3)
 
 
 # Подгон размеров фоток под лейбл (фрейм)
@@ -861,7 +864,10 @@ def resize():
     global resize_image_files
     for image in image_files:
         b = Image.open(image)
-        new = b.resize((1080, 1080))
+        if abs(monitor_areas()[1][0]) == 1080 or abs(monitor_areas()[0][0]) == 1080:
+            new = b.resize((1080, 1080))
+        else:
+            new = b.resize((1040, 1080))
         new1 = ImageTk.PhotoImage(new)
         resize_image_files.append(new1)
 
@@ -875,13 +881,8 @@ def resize_big():
         resize_big_image_files.append(new1)
 
 
-label_image = tk.Label(frame_right, bg='#d6f8ff', image=default_slide_back)
-label_image.pack(anchor=W, expand=True, fill='both', side='left')
-size_checker(label_image)
 resize()
-resize_image_files = cycle(resize_image_files)  # Итератор для уменьшенных картинок
 resize_big()
-resize_big_image_files = cycle(resize_big_image_files)
 
 cashback_label = tk.Label(main_window, height=840, image=default_cashback, bg='black')
 
@@ -893,13 +894,13 @@ def check_display_mode():
         frame_left.pack_forget()
         if abs(monitor_areas()[1][0]) == 1080 or abs(monitor_areas()[0][0]) == 1080:
             cashback_label.pack(fill='both', expand=True)
-            label_big_slides.pack(fill='both', expand=True)
+            slider.pack(fill='both', expand=True)
         else:
-            label_big_slides.pack(fill='both', side='left', expand=True)
+            slider.pack(fill='both', side='left', expand=True)
             cashback_label.pack(fill='both', side='left', expand=True)
     else:
         cashback_label.pack_forget()
-        label_big_slides.pack_forget()
+        slider.pack_forget()
         main_window.pack_forget()
         main_window.pack(fill='both', expand=True)
         if abs(monitor_areas()[1][0]) == 1080 or abs(monitor_areas()[0][0]) == 1080:
@@ -917,8 +918,9 @@ except Exception:
     pass
 window.bind('<Control-Alt-w>', close)
 window.bind('<Control-Alt-r>', reboot)
+slider = Slider(main_window, resize_big_image_files)
+slider2 = Slider(frame_right, resize_image_files)
+slider2.pack()
 check_display_mode()
-show_big_slides()
-show_slides()
 writer()
 window.mainloop()
