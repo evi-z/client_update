@@ -1,15 +1,15 @@
+import ctypes
 import os
+import subprocess
 import sys
+import threading
 import time
 import tkinter as tk
-import ctypes
-import subprocess
-import threading
+from ftplib import FTP
 from tkinter import *
 from tkinter import font
 from tkinter import ttk
 from tkinter.font import nametofont
-from ftplib import FTP
 from winreg import *
 
 try:
@@ -34,6 +34,7 @@ import qrcode
 from qrcode.image.styledpil import StyledPilImage
 from qrcode.image.styles.moduledrawers import RoundedModuleDrawer
 from qrcode.image.styles.colormasks import RadialGradiantColorMask
+
 try:
     import requests
 except ImportError:
@@ -54,6 +55,7 @@ except ImportError:
     sys.exit(0)
 
 import datetime
+import tkinter.messagebox as mb
 
 day = datetime.datetime.today().isoweekday()
 frame_x = 1
@@ -86,7 +88,7 @@ CATEGORY_SEC_DICT_KEY = 'category'
 DEVICE_SEC_DICT_KEY = 'device'
 BREND_SEC_DICT_KEY = 'brend'
 VERSION_SEC_DICT_KEY = 'version'
-APP_VERSION = '3.4.3'
+APP_VERSION = '3.4.5'
 start_time = None
 
 try:
@@ -134,10 +136,12 @@ def ftp_updater():
         time.sleep(1)
         try:
             thread.cancel()
+        except Exception:
+            pass
+        try:
             thread_update.cancel()
         except Exception:
             pass
-        print('close on 169')
         os.execv(sys.executable, ['python'] + [PathFile])
     if not os.path.exists(ROOT_PATH + r'\last_ftp_time.txt'):  # Если нет файла со временем - создаем
         with open(ROOT_PATH + r'\last_ftp_time.txt', 'w') as local_time_file:
@@ -194,14 +198,17 @@ def ftp_updater():
         except Exception:
             print('Не удалось отправить данные на сервер, следующая попытка через 1 час\n\n')
     except FileNotFoundError:
-        print('Файл настроек не найден! Создается при первом входе в РМК. Программа была автоматически закрыта.\n\n')
+        msg = 'Файл настроек не найден!\n\n 1. Откройте смену\n 2. Вставьте товар в чек\n 3. Сторнируйте товар / аннулируйте чек\n 4. Выйдете из регистрации продаж (F10)\n 5. Снова войдите в регистрацию продаж\n 6. Запустите программу второго монитора\n\n Текущий сеанс будет завершен.'
+        mb.showwarning('Внимание!', msg)
         time.sleep(1)
         try:
             thread.cancel()
+        except Exception:
+            pass
+        try:
             thread_update.cancel()
         except Exception:
             pass
-        print('close on 226')
         sys.exit(0)
 
     try:
@@ -234,10 +241,12 @@ def ftp_updater():
                     time.sleep(1)
                     try:
                         thread.cancel()
+                    except Exception:
+                        pass
+                    try:
                         thread_update.cancel()
                     except Exception:
                         pass
-                    print('close on 262')
                     os.execv(sys.executable, ['python'] + [PathFile])
             elif config_data.get('brend') == 'Nevis' and day == 2:  # Если настройка Невис и вторник
                 for name, facts in ftp.mlsd():
@@ -267,10 +276,12 @@ def ftp_updater():
                     time.sleep(1)
                     try:
                         thread.cancel()
+                    except Exception:
+                        pass
+                    try:
                         thread_update.cancel()
                     except Exception:
                         pass
-                    print('close on 295')
                     os.execv(sys.executable, ['python'] + [PathFile])
             elif config_data.get('brend') == 'LenOblFarm' and day != 5:
                 for name, facts in ftp.mlsd():
@@ -299,10 +310,12 @@ def ftp_updater():
                     time.sleep(1)
                     try:
                         thread.cancel()
+                    except Exception:
+                        pass
+                    try:
                         thread_update.cancel()
                     except Exception:
                         pass
-                    print('close on 327')
                     os.execv(sys.executable, ['python'] + [PathFile])
             elif config_data.get('brend') == 'LenOblFarm' and day == 5:
                 for name, facts in ftp.mlsd():
@@ -331,21 +344,34 @@ def ftp_updater():
                     time.sleep(1)
                     try:
                         thread.cancel()
+                    except Exception:
+                        pass
+                    try:
                         thread_update.cancel()
                     except Exception:
                         pass
-                    print('close on 359')
                     os.execv(sys.executable, ['python'] + [PathFile])
-            # Меняем директорию на корень
-            ftp.cwd('..')
-            for name, facts in ftp.mlsd():
+        with FTP(host='mail.nevis.spb.ru', user='2monitor', passwd='WWGFk3Se0d') as ftp2:  # Соединяемся с FTP сервером
+            for name, facts in ftp2.mlsd():
                 if name == 'Top':
                     servertime = facts.get('modify')
             if int(servertime) > last_ftp_time_top:
-                for f in os.listdir(SLIDER_PATH_TOP):
-                    os.remove(os.path.join(SLIDER_PATH_TOP, f))
-                ftp.cwd('Top')
-                filenames = ftp.nlst()
+                try:
+                    for f in os.listdir(SLIDER_PATH_TOP):
+                        os.remove(os.path.join(SLIDER_PATH_TOP, f))
+                except Exception:
+                    time.sleep(1)
+                    try:
+                        thread.cancel()
+                    except Exception:
+                        pass
+                    try:
+                        thread_update.cancel()
+                    except Exception:
+                        pass
+                    os.execv(sys.executable, ['python'] + [PathFile])
+                ftp2.cwd('Top')
+                filenames = ftp2.nlst()
                 for i in filenames:
                     if i == '.':
                         filenames.remove(i)
@@ -355,7 +381,7 @@ def ftp_updater():
                 for filename in filenames:
                     host_file = os.path.join(SLIDER_PATH_TOP, filename)
                     with open(host_file, 'wb') as local_file:
-                        ftp.retrbinary('RETR ' + filename, local_file.write)
+                        ftp2.retrbinary('RETR ' + filename, local_file.write)
                 for f in os.listdir(SLIDER_PATH_TOP):
                     if f == 'Thumbs.db':
                         os.remove(os.path.join(SLIDER_PATH_TOP, f))
@@ -364,10 +390,12 @@ def ftp_updater():
                 time.sleep(1)
                 try:
                     thread.cancel()
+                except Exception:
+                    pass
+                try:
                     thread_update.cancel()
                 except Exception:
                     pass
-                print('close on 359')
                 os.execv(sys.executable, ['python'] + [PathFile])
     except Exception:
         print('Ошибка при обращении к файловому серверу.\nСледующая попытка через 1 час.\n\n')
@@ -382,6 +410,9 @@ def program_updater():
         time.sleep(1)
         try:
             thread.cancel()
+        except Exception:
+            pass
+        try:
             thread_update.cancel()
         except Exception:
             pass
@@ -402,6 +433,8 @@ try:
         os.mkdir(ROOT_PATH + r'\slider_sale')
     if not os.path.exists(ROOT_PATH + r'\slider_top'):
         os.mkdir(ROOT_PATH + r'\slider_top')
+    if os.path.exists(ROOT_PATH + r'\second_monitor.py'):
+        os.remove(ROOT_PATH + r'\second_monitor.py')
 except Exception:
     pass
 
@@ -551,6 +584,8 @@ def writer():
             for med in meds[:-1]:  # Вставка в чек
                 med = list(med)
                 med.insert(0, i)
+                # if med[1] in 'презерватив':
+                #     med[1] = 'Товар личной гигиены'
                 if abs(monitor_areas()[1][0]) == 1080 or abs(monitor_areas()[0][0]) == 1080:
                     if len(med[1]) > 30:
                         tmp = med[1]
@@ -620,7 +655,6 @@ window = tk.Tk()  # Главное окно
 def close(e):
     thread.cancel()
     thread_update.cancel()
-    print('close on 630')
     window.quit()
 
 
@@ -643,36 +677,44 @@ try:
     elif abs(monitor_areas()[0][0]) == 1920:
         window.geometry(f'{abs(monitor_areas()[0][0])}x{monitor_areas()[0][3]}-{monitor_areas()[1][2]}+0')
 except IndexError:
-    print('Ошибка! Второй монитор не обнаружен.\n\nПрограмма была автоматически закрыта.\n\n')
+    msg = 'Второй монитор не обнаружен!\n\nТекущий сеанс будет завершен.'
+    mb.showerror('Ошибка!', msg)
     try:
         thread.cancel()
+    except Exception:
+        pass
+    try:
         thread_update.cancel()
     except Exception:
         pass
-    print('close on 658')
     sys.exit(0)
 
 list_fonts = list(font.families())
 
 # Проверка на установку шрифтов
 if 'Montserrat' not in list_fonts:
-    print(
-        f'Ошибка! Не установлен шрифт "Montserrat"\n\nУстановите шрифт из папки: {ROOT_PATH}\n\nПрограмма была автоматически закрыта.\n\n')
+    msg = f'Ошибка! Не установлен шрифт "Montserrat"\n\nУстановите шрифт из папки: {ROOT_PATH}\n\nТекущий сеанс будет завершен.'
+    mb.showerror('Ошибка!', msg)
     try:
         thread.cancel()
+    except Exception:
+        pass
+    try:
         thread_update.cancel()
     except Exception:
         pass
     sys.exit(0)
 if 'Montserrat Medium' not in list_fonts:
-    print(
-        f'Ошибка! Не установлен шрифт "Montserrat Medium"\n\nУстановите шрифт из папки: {ROOT_PATH}\n\nПрограмма была автоматически закрыта.\n\n')
+    msg = f'Ошибка! Не установлен шрифт "Montserrat Medium"\n\nУстановите шрифт из папки: {ROOT_PATH}\n\nТекущий сеанс будет завершен.'
+    mb.showerror('Ошибка!', msg)
     try:
         thread.cancel()
+    except Exception:
+        pass
+    try:
         thread_update.cancel()
     except Exception:
         pass
-    print('close on 681')
     sys.exit(0)
 
 # Заголовки окон
@@ -848,14 +890,14 @@ try:
 except Exception:
     if brend == 'Nevis':
         if abs(monitor_areas()[1][0]) == 1080 or abs(monitor_areas()[0][0]) == 1080:
-            im3 = Image.open(IMAGES_PATH + r'\KOMAR1080840.png')
+            im3 = Image.open(IMAGES_PATH + r'\NEVIS1080840.png')
         else:
-            im3 = Image.open(IMAGES_PATH + r'\KOMAR8401080.png')
+            im3 = Image.open(IMAGES_PATH + r'\NEVIS8401080.png')
     elif brend == 'LenOblFarm':
         if abs(monitor_areas()[1][0]) == 1080 or abs(monitor_areas()[0][0]) == 1080:
-            im3 = Image.open(IMAGES_PATH + r'\KOMAR1080840.png')
+            im3 = Image.open(IMAGES_PATH + r'\LOF1080840.png')
         else:
-            im3 = Image.open(IMAGES_PATH + r'\KOMAR8401080.png')
+            im3 = Image.open(IMAGES_PATH + r'\LOF8401080.png')
     default_cashback = ImageTk.PhotoImage(im3)
 
 
