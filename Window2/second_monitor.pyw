@@ -22,18 +22,18 @@ except ImportError:
     sys.exit(0)
 from PIL import Image, ImageTk
 
-try:
-    import qrcode
-except ImportError:
-    print('Обнаружено отсутствие библиотеки qrcode\nНачинаю скачивание...\n\n')
-    subprocess.run('pip install qrcode')
-    subprocess.Popen([sys.executable, *sys.argv])
-    time.sleep(1)
-    sys.exit(0)
-import qrcode
-from qrcode.image.styledpil import StyledPilImage
-from qrcode.image.styles.moduledrawers import RoundedModuleDrawer
-from qrcode.image.styles.colormasks import RadialGradiantColorMask
+# try:
+#     import qrcode
+# except ImportError:
+#     print('Обнаружено отсутствие библиотеки qrcode\nНачинаю скачивание...\n\n')
+#     subprocess.run('pip install qrcode')
+#     subprocess.Popen([sys.executable, *sys.argv])
+#     time.sleep(1)
+#     sys.exit(0)
+# import qrcode
+# from qrcode.image.styledpil import StyledPilImage
+# from qrcode.image.styles.moduledrawers import RoundedModuleDrawer
+# from qrcode.image.styles.colormasks import RadialGradiantColorMask
 
 try:
     import requests
@@ -50,6 +50,24 @@ try:
 except ImportError:
     print('Обнаружено отсутствие библиотеки datetime\nНачинаю скачивание...\n\n')
     subprocess.run('pip install datetime')
+    subprocess.Popen([sys.executable, *sys.argv])
+    time.sleep(1)
+    sys.exit(0)
+
+try:
+    import base64
+except ImportError:
+    print('Обнаружено отсутствие библиотеки base64\nНачинаю скачивание...\n\n')
+    subprocess.run('pip install base64')
+    subprocess.Popen([sys.executable, *sys.argv])
+    time.sleep(1)
+    sys.exit(0)
+
+try:
+    import io
+except ImportError:
+    print('Обнаружено отсутствие библиотеки io\nНачинаю скачивание...\n\n')
+    subprocess.run('pip install io')
     subprocess.Popen([sys.executable, *sys.argv])
     time.sleep(1)
     sys.exit(0)
@@ -78,6 +96,7 @@ SLIDER_PATH = ROOT_PATH + r'\slider'
 SLIDER_PATH_TOP = ROOT_PATH + r'\slider_top'
 PATH_TO_FILE = r'C:\output\sm_check.txt'
 PATH_TO_SETTINGS = r'C:\output\settings.txt'
+PATH_TO_QR_SBP = r'C:\output\sm_qr_sbp.txt'
 # PATH_TO_SETTINGS = fr'{ROOT_PATH}\settings.txt'
 thread = None
 thread_update = None
@@ -88,7 +107,7 @@ CATEGORY_SEC_DICT_KEY = 'category'
 DEVICE_SEC_DICT_KEY = 'device'
 BREND_SEC_DICT_KEY = 'brend'
 VERSION_SEC_DICT_KEY = 'version'
-APP_VERSION = '3.4.5'
+APP_VERSION = '3.5'
 start_time = None
 
 try:
@@ -527,19 +546,23 @@ def size_checker(label):
 # Делает QR-код
 def qr_maker():
     global QR_LIST
-    with open(ROOT_PATH + r'\qr.txt', encoding='utf-8') as qr_file:
-        href = qr_file.readline().split()
-    if href:
-        qr = qrcode.QRCode(error_correction=qrcode.constants.ERROR_CORRECT_H)
-        qr.clear()
-        qr.add_data(href[0])
-        img = qr.make_image(image_factory=StyledPilImage,
-                            module_drawer=RoundedModuleDrawer(radius_ratio=0),
-                            color_mask=RadialGradiantColorMask((255, 255, 255), (226, 32, 33), (15, 161, 225)),
-                            embeded_image_path=IMAGES_PATH + r'\logo.png')
-        new_img = ImageTk.PhotoImage(img)
-        QR_LIST.append(new_img)
-        return True
+    if os.path.exists(PATH_TO_QR_SBP):
+        with open(PATH_TO_QR_SBP, encoding='utf-8') as qr_file:
+            href = qr_file.read().strip()
+        if href:
+            # qr = qrcode.QRCode(error_correction=qrcode.constants.ERROR_CORRECT_L, version=None)
+            # qr.clear()
+            # qr.add_data(href, optimize=0)
+            # img = qr.make_image(image_factory=StyledPilImage,
+            #                     module_drawer=RoundedModuleDrawer(radius_ratio=0),
+            #                     color_mask=RadialGradiantColorMask((255, 255, 255), (226, 32, 33), (15, 161, 225)))
+            img = Image.open(io.BytesIO(base64.decodebytes(bytes(href, "utf-8"))))
+            new_img = ImageTk.PhotoImage(img)
+            QR_LIST.append(new_img)
+            return True
+        else:
+            QR_LIST.clear()
+            return False
     else:
         QR_LIST.clear()
         return False
@@ -900,6 +923,8 @@ except Exception:
             im3 = Image.open(IMAGES_PATH + r'\LOF8401080.png')
     default_cashback = ImageTk.PhotoImage(im3)
 
+label_image = tk.Label(frame_right, bg='#d6f8ff', width=1080, height=1080)
+
 
 # Подгон размеров фоток под лейбл (фрейм)
 def resize():
@@ -948,9 +973,29 @@ def check_display_mode():
         if abs(monitor_areas()[1][0]) == 1080 or abs(monitor_areas()[0][0]) == 1080:
             frame_left.pack(fill='both', side="top", expand=True)
             frame_right.pack(fill='both', side="top", expand=True)
+            if qr_maker() is False:
+                label_qr.pack_forget()
+                label_image.pack_forget()
+                slider2.pack()
+            else:
+                slider2.pack_forget()
+                label_qr.pack(fill='x')
+                label_image.pack(expand=True, fill='both')
+                image_object = QR_LIST[0]
+                label_image.config(image=image_object)
         else:
             frame_left.pack(fill='both', side="left", expand=True)
             frame_right.pack(fill='both', side="left", expand=True)
+            if qr_maker() is False:
+                label_qr.pack_forget()
+                label_image.pack_forget()
+                slider2.pack()
+            else:
+                slider2.pack_forget()
+                label_qr.pack(fill='x')
+                label_image.pack(expand=True, fill='both')
+                image_object = QR_LIST[0]
+                label_image.config(image=image_object)
     window.after(3000, check_display_mode)
 
 
@@ -962,7 +1007,6 @@ window.bind('<Control-Alt-w>', close)
 window.bind('<Control-Alt-r>', reboot)
 slider = Slider(main_window, resize_big_image_files)
 slider2 = Slider(frame_right, resize_image_files)
-slider2.pack()
 check_display_mode()
 writer()
 window.mainloop()
