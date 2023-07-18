@@ -16,7 +16,7 @@ try:
     import PIL
 except ImportError:
     print('Обнаружено отсутствие библиотеки pillow\nНачинаю скачивание...\n\n')
-    subprocess.run('pip install pillow')
+    subprocess.run('pip install "pillow==9.4.0"')
     subprocess.Popen([sys.executable, *sys.argv])
     time.sleep(1)
     sys.exit(0)
@@ -107,7 +107,7 @@ CATEGORY_SEC_DICT_KEY = 'category'
 DEVICE_SEC_DICT_KEY = 'device'
 BREND_SEC_DICT_KEY = 'brend'
 VERSION_SEC_DICT_KEY = 'version'
-APP_VERSION = '3.5'
+APP_VERSION = '3.5.1'
 start_time = None
 
 try:
