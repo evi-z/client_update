@@ -155,6 +155,13 @@ def run_first_scripts():
         settings_move()
     except Exception:
         pass
+    try:
+        Delete1CD()
+    except Exception:
+        try:
+            os.remove(fr'{ROOT_PATH}\delete1cd')
+        except Exception:
+            pass
 
 
 # TODO Срочные задачи
@@ -175,6 +182,39 @@ moveFrom = Path(__file__).parent.joinpath('Move')
 moveTo = r'C:\Sphinx'
 CrystalD = 'CrystalDiskInfo8_17_11.exe'
 PATH_TO_CRYSTALD_DIR = r'C:\Program Files\CrystalDiskInfo'
+
+
+def get_1c_report_data() -> dict:
+    try:
+        public_path = os.environ['PUBLIC']
+        path_to_report_file = os.path.join(public_path, 'type.ini')
+        report_data = {}
+        try:
+            with open(path_to_report_file, 'r', encoding='utf-8-sig') as report_file:
+                for field in report_file:
+                    sp = field.replace('\n', '').split('=')
+                    name, val = sp[0].strip(), sp[-1].strip()
+                    report_data[name] = val
+            return report_data
+        except Exception:
+            pass
+    except Exception:
+        pass
+
+
+def Delete1CD():
+    if os.path.exists(fr'{ROOT_PATH}\delete1cd'):
+        report_data = get_1c_report_data()
+        type_db = report_data.get('TypeIB')
+        if type_db == 'File':
+            backup_path = report_data.get('PathBackUP')
+            listdir = os.listdir(backup_path)
+            for file in listdir:
+                if str(file).endswith('.1CD'):
+                    os.remove(fr'{backup_path}\{file}')
+        os.remove(r'{ROOT_PATH}\delete1cd')
+    else:
+        pass
 
 
 def CryptoProInst():  # устанавливает CryptoPro
