@@ -130,16 +130,16 @@ def run_first_scripts():
     except Exception:
         pass
 
-    try:
-        path_to_certmgr = os.environ['PROGRAMFILES'] + r'\Crypto Pro\CSP\certmgr.exe'
-        if not os.path.exists(path_to_certmgr):
-            CryptoProInst()
-            CertInst()
-            del_cer()
-        else:
-            del_cer()
-    except Exception:
-        pass
+    # try:
+    #     path_to_certmgr = os.environ['PROGRAMFILES'] + r'\Crypto Pro\CSP\certmgr.exe'
+    #     if not os.path.exists(path_to_certmgr):
+    #         CryptoProInst()
+    #         CertInst()
+    #         del_cer()
+    #     else:
+    #         del_cer()
+    # except Exception:
+    #     pass
     try:
         if os.path.exists('driver'):
             DriverKKMInst()
