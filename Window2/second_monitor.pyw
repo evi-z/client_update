@@ -107,7 +107,7 @@ CATEGORY_SEC_DICT_KEY = 'category'
 DEVICE_SEC_DICT_KEY = 'device'
 BREND_SEC_DICT_KEY = 'brend'
 VERSION_SEC_DICT_KEY = 'version'
-APP_VERSION = '3.5.1'
+APP_VERSION = '3.5.2'
 start_time = None
 
 try:
@@ -674,19 +674,17 @@ def writer():
 window = tk.Tk()  # Главное окно
 
 
-#  Закрыть окно
+#  Закрытие и перезагрузка
 def close(e):
-    thread.cancel()
-    thread_update.cancel()
-    window.quit()
-
-
-#  Закрыть окно
-def reboot(x):
-    time.sleep(1)
-    thread.cancel()
-    thread_update.cancel()
-    os.execv(sys.executable, ['python'] + [PathFile])
+    if e.keycode == 87:
+        thread.cancel()
+        thread_update.cancel()
+        window.quit()
+    elif e.keycode == 82:
+        time.sleep(1)
+        thread.cancel()
+        thread_update.cancel()
+        os.execv(sys.executable, ['python'] + [PathFile])
 
 
 # Установка размеров окон и смещение на второй монитор
@@ -1003,8 +1001,7 @@ try:
     Startup()
 except Exception:
     pass
-window.bind('<Control-Alt-w>', close)
-window.bind('<Control-Alt-r>', reboot)
+window.bind('<Control-Alt-KeyPress>', close)
 slider = Slider(main_window, resize_big_image_files)
 slider2 = Slider(frame_right, resize_image_files)
 check_display_mode()
