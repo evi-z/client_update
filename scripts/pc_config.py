@@ -145,6 +145,8 @@ CPU_DICT_KEY = 'cpu'
 PC_NAME = 'pc_name'
 MOTHERBOARD_DICT_KEY = 'mother'
 DRIVER_DICT_KEY = 'version'
+ARCHITECTURE_DICT_KEY = 'architecture'
+NET_SPEED_DICT_KEY = 'net_speed'
 
 
 def main():
@@ -207,7 +209,7 @@ def main():
     memory = round(bytes_to_gb(memory))
 
     # Тип логических дисков и их размеры
-    command = 'PowerShell "Get-PhysicalDisk | fl -Property MediaType, Size, FriendlyName"'
+    command = 'PowerShell "Get-PhysicalDisk | fl -Property MediaType, Size, FriendlyName, BusType"'
     res = run(command, shell=True, stdout=PIPE, stdin=PIPE, stderr=PIPE)
 
     disk_data = res.stdout.decode()
@@ -220,6 +222,20 @@ def main():
 
     # Платформа
     platform_ver = platform.win32_ver()
+    try:
+        arch_command = 'wmic os get osarchitecture /value'
+        platform_arch = str(subprocess.check_output(arch_command, shell=True)).split('\\n')[2].replace('\\r', '').split('=')[1].split('\\')[0]
+        friendly_arch = f'x{platform_arch[:-1]}'
+    except Exception:
+        friendly_arch = 'Unknown'
+
+    # Скорость сети
+    try:
+        net_command = 'wmic NIC where NetEnabled=true get Speed /value'
+        net_speed = str(subprocess.check_output(net_command, shell=True)).split('\\n')[2].replace('\\r', '').split('=')[1]
+        friendly_net_speed = int(net_speed) // 1000000
+    except Exception:
+        friendly_net_speed = None
 
     # Материнская плата
     try:
@@ -252,7 +268,9 @@ def main():
         CPU_DICT_KEY: cpu,
         PC_NAME: pc_name,
         MOTHERBOARD_DICT_KEY: mother,
-        DRIVER_DICT_KEY: version
+        DRIVER_DICT_KEY: version,
+        ARCHITECTURE_DICT_KEY: friendly_arch,
+        NET_SPEED_DICT_KEY: friendly_net_speed
     }
 
     try:
