@@ -5,6 +5,7 @@ import sys
 import threading
 import time
 import tkinter as tk
+import logging
 from ftplib import FTP
 from tkinter import *
 from tkinter import font
@@ -21,19 +22,6 @@ except ImportError:
     time.sleep(1)
     sys.exit(0)
 from PIL import Image, ImageTk
-
-# try:
-#     import qrcode
-# except ImportError:
-#     print('Обнаружено отсутствие библиотеки qrcode\nНачинаю скачивание...\n\n')
-#     subprocess.run('pip install qrcode')
-#     subprocess.Popen([sys.executable, *sys.argv])
-#     time.sleep(1)
-#     sys.exit(0)
-# import qrcode
-# from qrcode.image.styledpil import StyledPilImage
-# from qrcode.image.styles.moduledrawers import RoundedModuleDrawer
-# from qrcode.image.styles.colormasks import RadialGradiantColorMask
 
 try:
     import requests
@@ -107,8 +95,33 @@ CATEGORY_SEC_DICT_KEY = 'category'
 DEVICE_SEC_DICT_KEY = 'device'
 BREND_SEC_DICT_KEY = 'brend'
 VERSION_SEC_DICT_KEY = 'version'
-APP_VERSION = '3.5.2'
+APP_VERSION = '3.5.3'
 start_time = None
+LOG_NAME = 'second_monitor.log'
+
+
+# Инициализирует logger
+def init_logger():
+    fh = logging.FileHandler(os.path.join(ROOT_PATH, LOG_NAME), 'a')  # Файл лога
+    str_format = '[%(asctime)s]: %(levelname)s - %(name)s - (%(filename)s).%(funcName)s(%(lineno)d) ' \
+                 '=> %(message)s'  # Формат вывода
+    date_format = '%X %d/%m/%y'  # Формат даты/времени
+    formatter = logging.Formatter(fmt=str_format, datefmt=date_format)
+    fh.setFormatter(formatter)  # Устанавливаем форматирование
+
+    return fh  # Возвращаем настроенный логгер
+
+
+# Возвращает объект logger-a
+def get_logger(name):
+    logger = logging.getLogger(name)  # Инициализируем объект логгера с именем программы
+    logger.setLevel(logging.INFO)  # Уровень логгирования
+    logger.addHandler(init_logger())  # Добавляем
+
+    return logger
+
+
+logger = get_logger(__name__)  # Инициализируем logger
 
 try:
     start_time = os.path.getmtime(PathFile)
@@ -155,12 +168,17 @@ def ftp_updater():
         time.sleep(1)
         try:
             thread.cancel()
+            logger.info('Остановлен основной поток')
         except Exception:
+            logger.error('Не удалось остановить основной поток', exc_info=True)
             pass
         try:
             thread_update.cancel()
+            logger.info('Остановлен поток проверки обновлений')
         except Exception:
+            logger.error('Не удалось остановить поток проверки обновлений', exc_info=True)
             pass
+        logger.info('Новый день - перезапуск')
         os.execv(sys.executable, ['python'] + [PathFile])
     if not os.path.exists(ROOT_PATH + r'\last_ftp_time.txt'):  # Если нет файла со временем - создаем
         with open(ROOT_PATH + r'\last_ftp_time.txt', 'w') as local_time_file:
@@ -215,19 +233,24 @@ def ftp_updater():
         try:
             send_data(second_monitor_dict)
         except Exception:
-            print('Не удалось отправить данные на сервер, следующая попытка через 1 час\n\n')
+            logger.error('Не удалось отправить данные на сервер следующая попытка через 1 час. Причина:', exc_info=True)
     except FileNotFoundError:
         msg = 'Файл настроек не найден!\n\n 1. Откройте смену\n 2. Вставьте товар в чек\n 3. Сторнируйте товар / аннулируйте чек\n 4. Выйдете из регистрации продаж (F10)\n 5. Снова войдите в регистрацию продаж\n 6. Запустите программу второго монитора\n\n Текущий сеанс будет завершен.'
         mb.showwarning('Внимание!', msg)
         time.sleep(1)
         try:
             thread.cancel()
+            logger.info('Остановлен основной поток')
         except Exception:
+            logger.error('Не удалось остановить основной поток', exc_info=True)
             pass
         try:
             thread_update.cancel()
+            logger.info('Остановлен поток проверки обновлений')
         except Exception:
+            logger.error('Не удалось остановить поток проверки обновлений', exc_info=True)
             pass
+        logger.error('Нет файла настроек - закрытие программы')
         sys.exit(0)
 
     try:
@@ -417,7 +440,7 @@ def ftp_updater():
                     pass
                 os.execv(sys.executable, ['python'] + [PathFile])
     except Exception:
-        print('Ошибка при обращении к файловому серверу.\nСледующая попытка через 1 час.\n\n')
+        logger.error('Ошибка при обращении к файловому серверу. Следующая попытка через 1 час. Причина:', exc_info=True)
     thread = threading.Timer(3600.0, ftp_updater)  # Проверяем каждый час
     thread.start()
 
@@ -550,12 +573,6 @@ def qr_maker():
         with open(PATH_TO_QR_SBP, encoding='utf-8') as qr_file:
             href = qr_file.read().strip()
         if href:
-            # qr = qrcode.QRCode(error_correction=qrcode.constants.ERROR_CORRECT_L, version=None)
-            # qr.clear()
-            # qr.add_data(href, optimize=0)
-            # img = qr.make_image(image_factory=StyledPilImage,
-            #                     module_drawer=RoundedModuleDrawer(radius_ratio=0),
-            #                     color_mask=RadialGradiantColorMask((255, 255, 255), (226, 32, 33), (15, 161, 225)))
             img = Image.open(io.BytesIO(base64.decodebytes(bytes(href, "utf-8"))))
             new_img = ImageTk.PhotoImage(img)
             QR_LIST.append(new_img)
@@ -679,37 +696,64 @@ def close(e):
     if e.keycode == 87:
         thread.cancel()
         thread_update.cancel()
+        logger.info('Ручное закрытие')
         window.quit()
     elif e.keycode == 82:
         time.sleep(1)
         thread.cancel()
         thread_update.cancel()
+        logger.info('Ручной перезапуск')
         os.execv(sys.executable, ['python'] + [PathFile])
 
 
 # Установка размеров окон и смещение на второй монитор
-try:
-    if abs(monitor_areas()[1][0]) == 1080:  # Вертикальное положение
-        window.geometry(f'{abs(monitor_areas()[1][0])}x{monitor_areas()[1][3]}-{monitor_areas()[0][2]}+0')
-    elif abs(monitor_areas()[0][0]) == 1080:
-        window.geometry(f'{abs(monitor_areas()[0][0])}x{monitor_areas()[0][3]}-{monitor_areas()[1][2]}+0')
-    elif abs(monitor_areas()[1][0]) == 1920:  # Горизонтальное положение
-        window.geometry(f'{abs(monitor_areas()[1][0])}x{monitor_areas()[1][3]}-{monitor_areas()[0][2]}+0')
-    elif abs(monitor_areas()[0][0]) == 1920:
-        window.geometry(f'{abs(monitor_areas()[0][0])}x{monitor_areas()[0][3]}-{monitor_areas()[1][2]}+0')
-except IndexError:
-    msg = 'Второй монитор не обнаружен!\n\nТекущий сеанс будет завершен.'
-    mb.showerror('Ошибка!', msg)
+def geometry():
     try:
-        thread.cancel()
-    except Exception:
-        pass
-    try:
-        thread_update.cancel()
-    except Exception:
-        pass
-    sys.exit(0)
+        if abs(monitor_areas()[1][0]) == 1080:  # Вертикальное положение
+            window.geometry(f'{abs(monitor_areas()[1][0])}x{monitor_areas()[1][3]}-{monitor_areas()[0][2]}+0')
+        elif abs(monitor_areas()[0][0]) == 1080:
+            window.geometry(f'{abs(monitor_areas()[0][0])}x{monitor_areas()[0][3]}-{monitor_areas()[1][2]}+0')
+        elif abs(monitor_areas()[1][0]) == 1920:  # Горизонтальное положение
+            window.geometry(f'{abs(monitor_areas()[1][0])}x{monitor_areas()[1][3]}-{monitor_areas()[0][2]}+0')
+        elif abs(monitor_areas()[0][0]) == 1920:
+            window.geometry(f'{abs(monitor_areas()[0][0])}x{monitor_areas()[0][3]}-{monitor_areas()[1][2]}+0')
+    except IndexError:
+        msg = 'Второй монитор не обнаружен!\n\nТекущий сеанс будет завершен.'
+        mb.showerror('Ошибка!', msg)
+        try:
+            thread.cancel()
+        except Exception:
+            pass
+        try:
+            thread_update.cancel()
+        except Exception:
+            pass
+        logger.error('Завершение работы программы - второй монитор не обнаружен')
+        sys.exit(0)
 
+
+def monitors_check():
+    try:
+        if monitor_areas()[1][0]:
+            pass
+        elif monitor_areas()[0][0]:
+            pass
+    except IndexError:
+        msg = 'Второй монитор не обнаружен!\nОбратитесь в комп. отдел\n\nТекущий сеанс будет завершен.'
+        mb.showerror('Ошибка!', msg)
+        try:
+            thread.cancel()
+        except Exception:
+            pass
+        try:
+            thread_update.cancel()
+        except Exception:
+            pass
+        logger.error('Завершение работы программы - второй монитор не обнаружен')
+        sys.exit(0)
+
+
+geometry()
 list_fonts = list(font.families())
 
 # Проверка на установку шрифтов
@@ -954,6 +998,7 @@ cashback_label = tk.Label(main_window, height=840, image=default_cashback, bg='b
 
 def check_display_mode():
     global resize_big_image_files
+    monitors_check()
     if not id_list:
         frame_right.pack_forget()
         frame_left.pack_forget()
@@ -1000,6 +1045,7 @@ def check_display_mode():
 try:
     Startup()
 except Exception:
+    logger.error('Не удалось добавить в автозапуск. Причина:', exc_info=True)
     pass
 window.bind('<Control-Alt-KeyPress>', close)
 slider = Slider(main_window, resize_big_image_files)
