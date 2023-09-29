@@ -95,7 +95,7 @@ CATEGORY_SEC_DICT_KEY = 'category'
 DEVICE_SEC_DICT_KEY = 'device'
 BREND_SEC_DICT_KEY = 'brend'
 VERSION_SEC_DICT_KEY = 'version'
-APP_VERSION = '3.5.3'
+APP_VERSION = '3.5.4'
 start_time = None
 LOG_NAME = 'second_monitor.log'
 
@@ -394,14 +394,42 @@ def ftp_updater():
                         pass
                     os.execv(sys.executable, ['python'] + [PathFile])
         with FTP(host='mail.nevis.spb.ru', user='2monitor', passwd='WWGFk3Se0d') as ftp2:  # Соединяемся с FTP сервером
-            for name, facts in ftp2.mlsd():
-                if name == 'Top':
-                    servertime = facts.get('modify')
-            if int(servertime) > last_ftp_time_top:
-                try:
+            if config_data.get('brend') == 'Nevis':
+                for name, facts in ftp2.mlsd():
+                    if name == 'NevisTop':
+                        servertime = facts.get('modify')
+                if int(servertime) > last_ftp_time_top:
+                    try:
+                        for f in os.listdir(SLIDER_PATH_TOP):
+                            os.remove(os.path.join(SLIDER_PATH_TOP, f))
+                    except Exception:
+                        time.sleep(1)
+                        try:
+                            thread.cancel()
+                        except Exception:
+                            pass
+                        try:
+                            thread_update.cancel()
+                        except Exception:
+                            pass
+                        os.execv(sys.executable, ['python'] + [PathFile])
+                    ftp2.cwd('NevisTop')
+                    filenames = ftp2.nlst()
+                    for i in filenames:
+                        if i == '.':
+                            filenames.remove(i)
+                    for i in filenames:
+                        if i == '..':
+                            filenames.remove(i)
+                    for filename in filenames:
+                        host_file = os.path.join(SLIDER_PATH_TOP, filename)
+                        with open(host_file, 'wb') as local_file:
+                            ftp2.retrbinary('RETR ' + filename, local_file.write)
                     for f in os.listdir(SLIDER_PATH_TOP):
-                        os.remove(os.path.join(SLIDER_PATH_TOP, f))
-                except Exception:
+                        if f == 'Thumbs.db':
+                            os.remove(os.path.join(SLIDER_PATH_TOP, f))
+                    with open(ROOT_PATH + r'\last_ftp_time_top.txt', 'w') as local_time_file_top:
+                        local_time_file_top.write(str(servertime))
                     time.sleep(1)
                     try:
                         thread.cancel()
@@ -412,33 +440,52 @@ def ftp_updater():
                     except Exception:
                         pass
                     os.execv(sys.executable, ['python'] + [PathFile])
-                ftp2.cwd('Top')
-                filenames = ftp2.nlst()
-                for i in filenames:
-                    if i == '.':
-                        filenames.remove(i)
-                for i in filenames:
-                    if i == '..':
-                        filenames.remove(i)
-                for filename in filenames:
-                    host_file = os.path.join(SLIDER_PATH_TOP, filename)
-                    with open(host_file, 'wb') as local_file:
-                        ftp2.retrbinary('RETR ' + filename, local_file.write)
-                for f in os.listdir(SLIDER_PATH_TOP):
-                    if f == 'Thumbs.db':
-                        os.remove(os.path.join(SLIDER_PATH_TOP, f))
-                with open(ROOT_PATH + r'\last_ftp_time_top.txt', 'w') as local_time_file_top:
-                    local_time_file_top.write(str(servertime))
-                time.sleep(1)
-                try:
-                    thread.cancel()
-                except Exception:
-                    pass
-                try:
-                    thread_update.cancel()
-                except Exception:
-                    pass
-                os.execv(sys.executable, ['python'] + [PathFile])
+            elif config_data.get('brend') == 'LenOblFarm':
+                for name, facts in ftp2.mlsd():
+                    if name == 'LenOblFarmTop':
+                        servertime = facts.get('modify')
+                if int(servertime) > last_ftp_time_top:
+                    try:
+                        for f in os.listdir(SLIDER_PATH_TOP):
+                            os.remove(os.path.join(SLIDER_PATH_TOP, f))
+                    except Exception:
+                        time.sleep(1)
+                        try:
+                            thread.cancel()
+                        except Exception:
+                            pass
+                        try:
+                            thread_update.cancel()
+                        except Exception:
+                            pass
+                        os.execv(sys.executable, ['python'] + [PathFile])
+                    ftp2.cwd('LenOblFarmTop')
+                    filenames = ftp2.nlst()
+                    for i in filenames:
+                        if i == '.':
+                            filenames.remove(i)
+                    for i in filenames:
+                        if i == '..':
+                            filenames.remove(i)
+                    for filename in filenames:
+                        host_file = os.path.join(SLIDER_PATH_TOP, filename)
+                        with open(host_file, 'wb') as local_file:
+                            ftp2.retrbinary('RETR ' + filename, local_file.write)
+                    for f in os.listdir(SLIDER_PATH_TOP):
+                        if f == 'Thumbs.db':
+                            os.remove(os.path.join(SLIDER_PATH_TOP, f))
+                    with open(ROOT_PATH + r'\last_ftp_time_top.txt', 'w') as local_time_file_top:
+                        local_time_file_top.write(str(servertime))
+                    time.sleep(1)
+                    try:
+                        thread.cancel()
+                    except Exception:
+                        pass
+                    try:
+                        thread_update.cancel()
+                    except Exception:
+                        pass
+                    os.execv(sys.executable, ['python'] + [PathFile])
     except Exception:
         logger.error('Ошибка при обращении к файловому серверу. Следующая попытка через 1 час. Причина:', exc_info=True)
     thread = threading.Timer(3600.0, ftp_updater)  # Проверяем каждый час
