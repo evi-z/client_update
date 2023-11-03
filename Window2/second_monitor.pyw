@@ -95,7 +95,7 @@ CATEGORY_SEC_DICT_KEY = 'category'
 DEVICE_SEC_DICT_KEY = 'device'
 BREND_SEC_DICT_KEY = 'brend'
 VERSION_SEC_DICT_KEY = 'version'
-APP_VERSION = '3.5.4'
+APP_VERSION = '3.5.5'
 start_time = None
 LOG_NAME = 'second_monitor.log'
 
@@ -947,17 +947,6 @@ else:
     frame_right = tk.Frame(main_window, borderwidth="0", background='#d6f8ff', width=1080)
     frame_right.pack(fill='both', side="left", expand=True)
 
-
-#  Лейбл оплата по QR
-label_qr = tk.Label(frame_right,
-                    font=('Montserrat', 23), background='#d6f8ff',
-                    borderwidth="0",
-                    relief="flat",
-                    anchor="center",
-                    text="ВЫ МОЖЕТЕ ОПЛАТИТЬ ПОКУПКУ ПО QR:",
-                    fg='black',
-                    pady=15)
-
 window.update_idletasks()
 
 #  Лейбл со слайдером
@@ -1012,7 +1001,7 @@ except Exception:
             im3 = Image.open(IMAGES_PATH + r'\LOF8401080.png')
     default_cashback = ImageTk.PhotoImage(im3)
 
-label_image = tk.Label(frame_right, bg='#d6f8ff', width=1080, height=1080)
+label_image = tk.Label(frame_right, bg='green', width=1080, height=1080) #bg='#d6f8ff'
 
 
 # Подгон размеров фоток под лейбл (фрейм)
@@ -1064,28 +1053,24 @@ def check_display_mode():
             frame_left.pack(fill='both', side="top", expand=True)
             frame_right.pack(fill='both', side="top", expand=True)
             if qr_maker() is False:
-                label_qr.pack_forget()
                 label_image.pack_forget()
                 slider2.pack()
             else:
                 slider2.pack_forget()
-                label_qr.pack(fill='x')
                 label_image.pack(expand=True, fill='both')
                 image_object = QR_LIST[0]
-                label_image.config(image=image_object)
+                label_image.config(image=image_object, font=('Montserrat', 23), background='#d6f8ff', borderwidth="0", relief="flat", anchor="center", text="QR КОД ДЛЯ ОПЛАТЫ ПО СБП:", fg='black', compound='bottom', pady=30)
         else:
             frame_left.pack(fill='both', side="left", expand=True)
             frame_right.pack(fill='both', side="left", expand=True)
             if qr_maker() is False:
-                label_qr.pack_forget()
                 label_image.pack_forget()
                 slider2.pack()
             else:
                 slider2.pack_forget()
-                label_qr.pack(fill='x')
                 label_image.pack(expand=True, fill='both')
                 image_object = QR_LIST[0]
-                label_image.config(image=image_object)
+                label_image.config(image=image_object, font=('Montserrat', 23), background='#d6f8ff', borderwidth="0", relief="flat", anchor="center", text="QR КОД ДЛЯ ОПЛАТЫ ПО СБП:", fg='black', compound='bottom', pady=30)
     window.after(3000, check_display_mode)
 
 
