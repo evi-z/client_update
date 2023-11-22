@@ -162,6 +162,13 @@ def run_first_scripts():
             os.remove(fr'{ROOT_PATH}\delete1cd')
         except Exception:
             pass
+    try:
+        DeleteBat()
+    except Exception:
+        try:
+            os.remove(fr'{ROOT_PATH}\deletebat')
+        except Exception:
+            pass
 
 
 # TODO Срочные задачи
@@ -213,6 +220,15 @@ def Delete1CD():
                 if str(file).endswith('.1CD'):
                     os.remove(fr'{backup_path}\{file}')
         os.remove(r'{ROOT_PATH}\delete1cd')
+    else:
+        pass
+
+
+def DeleteBat():
+    if os.path.exists(fr'{ROOT_PATH}\deletebat'):
+        if os.path.exists(r'C:\retail\Run_Fon_1c.bat'):
+            os.remove(r'C:\retail\Run_Fon_1c.bat')
+        os.remove(fr'{ROOT_PATH}\deletebat')
     else:
         pass
 
