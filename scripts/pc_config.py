@@ -145,42 +145,65 @@ CPU_DICT_KEY = 'cpu'
 PC_NAME = 'pc_name'
 MOTHERBOARD_DICT_KEY = 'mother'
 DRIVER_DICT_KEY = 'version'
+ONE_S_VERSION_DICT_KEY = 'one_s_version'
 ARCHITECTURE_DICT_KEY = 'architecture'
 NET_SPEED_DICT_KEY = 'net_speed'
+CPU_TEMPERATURE_DICT_KEY = 'cpu_temperature'
 
 
 def main():
+    # Узнаем версию драйвера ККТ
     try:
-        old_version = '5.16'
-        new_version = '5.17'
         program_files_86 = os.environ.get('ProgramFiles(x86)', '')
         program_files = os.environ.get('ProgramW6432', '')
-        hard_program_files_86 = r'C:\Program Files (x86)'
-        hard_program_files = r'C:\Program Files'
 
-        if os.path.exists(os.path.join(program_files_86, r'SHTRIH-M\DrvFR5\Bin\DrvFRTst.exe')):
-            path_to_drvr = os.path.join(program_files_86, r'SHTRIH-M\DrvFR5\Bin\DrvFRTst.exe')
-        elif os.path.exists(os.path.join(program_files, r'SHTRIH-M\DrvFR5\Bin\DrvFRTst.exe')):
-            path_to_drvr = os.path.join(program_files, r'SHTRIH-M\DrvFR5\Bin\DrvFRTst.exe')
-        elif os.path.exists(r'C:\Program Files (x86)\SHTRIH-M\DrvFR5\Bin\DrvFRTst.exe'):
-            path_to_drvr = r'C:\Program Files (x86)\SHTRIH-M\DrvFR5\Bin\DrvFRTst.exe'
-        elif os.path.exists(r'C:\Program Files\SHTRIH-M\DrvFR5\Bin\DrvFRTst.exe'):
-            path_to_drvr = r'C:\Program Files\SHTRIH-M\DrvFR5\Bin\DrvFRTst.exe'
+        if os.path.exists(os.path.join(program_files_86, r'SHTRIH-M\DrvFR5\Bin\DrvFR.dll')):
+            path_to_drvr = os.path.join(program_files_86, r'SHTRIH-M\DrvFR5\Bin\DrvFR.dll')
+            path_to_drvr = path_to_drvr.replace('\\', '\\\\')
+        elif os.path.exists(os.path.join(program_files, r'SHTRIH-M\DrvFR5\Bin\DrvFR.dll')):
+            path_to_drvr = os.path.join(program_files, r'SHTRIH-M\DrvFR5\Bin\DrvFR.dll')
+            path_to_drvr = path_to_drvr.replace('\\', '\\\\')
         else:
             path_to_drvr = None
 
         if path_to_drvr is not None:
-            drv_time = os.path.getmtime(path_to_drvr)
-            if str(drv_time) == '1632924742.0':
-                version = old_version
-            elif str(drv_time) == '1672332822.0':
-                version = new_version
-            else:
-                version = 'Undefined'
+            version_command = fr'wmic datafile where name="{path_to_drvr}" get version /value'
+            version = str(subprocess.check_output(version_command, shell=True)).split('\\n')[2].replace('\\r', '').split('=')[1].split('\\')[0]
         else:
             version = 'Undefined'
     except Exception:
         version = 'Undefined'
+
+    # Узнаем версию 1С
+    try:
+        program_files_86 = os.environ.get('ProgramFiles(x86)', '')
+        program_files = os.environ.get('ProgramW6432', '')
+
+        if os.path.exists(os.path.join(program_files_86, r'1cv8\common\1cestart.exe')):
+            path_to_one_s = os.path.join(program_files_86, r'1cv8\common\1cestart.exe')
+            path_to_one_s = path_to_one_s.replace('\\', '\\\\')
+        elif os.path.exists(os.path.join(program_files, r'1cv8\common\1cestart.exe')):
+            path_to_one_s = os.path.join(program_files, r'1cv8\common\1cestart.exe')
+            path_to_one_s = path_to_one_s.replace('\\', '\\\\')
+        else:
+            path_to_one_s = None
+
+        if path_to_one_s is not None:
+            version_command = fr'wmic datafile where name="{path_to_one_s}" get version /value'
+            one_s_version = str(subprocess.check_output(version_command, shell=True)).split('\\n')[2].replace('\\r', '').split('=')[1].split('\\')[0]
+        else:
+            one_s_version = 'Undefined'
+    except Exception:
+        one_s_version = 'Undefined'
+
+    # Температура процессора
+    try:
+        cpu_temperature_command = r'wmic /namespace:\\root\wmi PATH MSAcpi_ThermalZoneTemperature get CurrentTemperature /value'
+        cpu_temperature = str(subprocess.check_output(cpu_temperature_command, shell=True)).split('\\n')[2].replace('\\r', '').split('=')[1].split('\\')[0]
+        cpu_temperature = int(cpu_temperature) / 10 - 272.15
+        cpu_temperature = int(cpu_temperature)
+    except Exception:
+        cpu_temperature = 'Undefined'
 
     #  ОЗУ и Диски
     ram = psutil.virtual_memory().total  # Оперативная память (Байты)
@@ -218,7 +241,14 @@ def main():
     # Разрешение экрана
     horizontal = ctypes.windll.user32.GetSystemMetrics(0)
     vertical = ctypes.windll.user32.GetSystemMetrics(1)
-    screen_resolution = f'{horizontal}x{vertical}'
+    # Узнаем название монитора
+    try:
+        monitor_name_command = 'wmic desktopmonitor get Name /value'
+        monitor_name = str(subprocess.check_output(monitor_name_command, shell=True)).split('\\n')[2].replace('\\r', '').split('=')[1].split('\\')[0]
+
+    except Exception:
+        monitor_name = ''
+    screen_resolution = f'{horizontal}x{vertical} {monitor_name}'
 
     # Платформа
     platform_ver = platform.win32_ver()
@@ -269,8 +299,10 @@ def main():
         PC_NAME: pc_name,
         MOTHERBOARD_DICT_KEY: mother,
         DRIVER_DICT_KEY: version,
+        ONE_S_VERSION_DICT_KEY: one_s_version,
         ARCHITECTURE_DICT_KEY: friendly_arch,
-        NET_SPEED_DICT_KEY: friendly_net_speed
+        NET_SPEED_DICT_KEY: friendly_net_speed,
+        CPU_TEMPERATURE_DICT_KEY: cpu_temperature
     }
 
     try:

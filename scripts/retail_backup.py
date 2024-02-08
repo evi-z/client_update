@@ -317,6 +317,8 @@ def comzav():
     backup_list = list(filter(lambda x: not x.endswith('.1CD'), backup_list))
     # Отсеиваем бэкап папки sc552
     backup_list = list(filter(lambda y: not y.endswith('552.zip'), backup_list))
+    # Отсеиваем бэкап папки Sphinx
+    backup_list = list(filter(lambda z: not z.endswith('inx.zip'), backup_list))
 
     if not backup_list:
         logger.error(f'В удалённой директории бекапов ({remote_path}) отсутсвуют бекапы')
@@ -434,6 +436,11 @@ def comzav():
                 shutil.copy2(src, path_to_local_backup)
             else:
                 pass
+            if os.path.exists(remote_path + r'\Sphinx.zip'):
+                src = remote_path + r'\Sphinx.zip'
+                shutil.copy2(src, path_to_local_backup)
+            else:
+                pass
 
         elif os.path.isdir(last_backup):
             fullsize = True
@@ -533,6 +540,15 @@ def sc552_archive():
         pass
 
 
+def sphinx_archive():
+    path_to_sphinx = r'C:\Sphinx'
+    save = first_kassa_back + r'\Sphinx'
+    if os.path.exists(path_to_sphinx):
+        shutil.make_archive(base_name=save, format='zip', base_dir=path_to_sphinx)
+    else:
+        pass
+
+
 def get_copy_time() -> int:
     try:
         with open('_cptime', 'r') as cptime:
@@ -562,6 +578,10 @@ def script(configuration, need_backup: bool):
                 archive()  # пытаемся заархивить последний бэкап
                 try:
                     sc552_archive()  # пытаемся заархивить папку sc552
+                except Exception:
+                    pass
+                try:
+                    sphinx_archive()  # пытаемся заархивить папку Sphinx
                 except Exception:
                     pass
             except Exception:
