@@ -434,9 +434,9 @@ EVERY_DAY_PHARMACY = [
 
 # Возвращает время задачи, либо None
 def script(configuration: ConfigurationsObject, scheduler: AppScheduler):
-    if int(configuration.device_or_name) in (1, 99):  # Если первая касса, либо сервер
-        Popen('iisreset /START', shell=True, stdout=DEVNULL, stderr=DEVNULL)  # Запускаем IIS
-        time.sleep(1)
+    # if int(configuration.device_or_name) in (1, 99):  # Если первая касса, либо сервер
+    #     Popen('iisreset /START', shell=True, stdout=DEVNULL, stderr=DEVNULL)  # Запускаем IIS
+    time.sleep(1)
     #     configuration.settings.logger.info(f'Корректировка настроек планировщика')
     #
     #     task_dict = init_scheduler(configuration)
