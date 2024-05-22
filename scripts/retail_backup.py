@@ -430,15 +430,18 @@ def comzav():
     fullsize = False
     try:
         if os.path.isfile(last_backup):
-            shutil.copy2(last_backup, path_to_local_backup)
+            os.popen(fr'copy {last_backup} {path_to_local_backup}')
+            # shutil.copy2(last_backup, path_to_local_backup)
             if os.path.exists(remote_path + r'\sc552.zip'):
                 src = remote_path + r'\sc552.zip'
-                shutil.copy2(src, path_to_local_backup)
+                os.popen(fr'copy {src} {path_to_local_backup}')
+                # shutil.copy2(src, path_to_local_backup)
             else:
                 pass
             if os.path.exists(remote_path + r'\Sphinx.zip'):
                 src = remote_path + r'\Sphinx.zip'
-                shutil.copy2(src, path_to_local_backup)
+                os.popen(fr'copy {src} {path_to_local_backup}')
+                # shutil.copy2(src, path_to_local_backup)
             else:
                 pass
 
@@ -588,7 +591,7 @@ def script(configuration, need_backup: bool):
                 pass
         elif device == 0 and need_backup:
             res_dict = comzav()
-            if res_dict.get('status') == 'success' or res_dict.get('status_code') == 'BACKUP_COPY_ERROR':
+            if res_dict.get('status') == 'success':  # or res_dict.get('status_code') == 'BACKUP_COPY_ERROR':
                 now = str(time.time())
                 configuration.settings.reg_data.set_reg_key('LastComZavBackRetail', now)  # Время последнего бекапа
         else:

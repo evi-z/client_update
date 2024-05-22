@@ -520,9 +520,10 @@ class TightVNC:
                 f'Вероятнее всего, антивирусная программа добавила этот файл в карантин.\n'
                 f'Добавте директорию [{ROOT_PATH}] в исключения антивируса и повторите попытку.', stand_print=False
             )
-
-        # СЛУЖБА НЕ РЕГИСТРИРУЕТСЯ БЕЗ ПРАВ АДМИНИСТРАТОРА !
-        run([self.path_to_tvnc_file, '-reinstall', '-silent'], stderr=PIPE, stdout=PIPE, stdin=PIPE)
+        else:
+            # СЛУЖБА НЕ РЕГИСТРИРУЕТСЯ БЕЗ ПРАВ АДМИНИСТРАТОРА !
+            self.configuration.settings.logger.warning('Устанавливаю службу VNC')
+            run([self.path_to_tvnc_file, '-reinstall', '-silent'], stderr=PIPE, stdout=PIPE, stdin=PIPE)
 
     # Убивает процесс службы Tight VNC
     @staticmethod
@@ -875,7 +876,7 @@ class RetailBackup:
             if self._check_need_init(last_run):  # Если необходимо выполнить
                 self._init_script(need_backup=need_run)  # Инициализируем работу
 
-            time.sleep(60 * 10)  # Засыпает на 10 минут
+            time.sleep(60 * 30)  # Засыпает на 10 минут
 
     # Устанавливет значение последнего запуска в реестр
     def _set_last_run(self):
@@ -1122,7 +1123,7 @@ class SSHConnection:
         if self.connect_dict is None:  # Если нет актуальных данных
             raise NotDataForConnection
 
-        self.tvnc.start_service()  # Запускаем службу Tight VNC
+        self.tvnc.check_running()  # Запускаем службу Tight VNC
 
         self.loop = asyncio.new_event_loop()  # Создаём цикл
         asyncio.set_event_loop(self.loop)

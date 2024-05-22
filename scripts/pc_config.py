@@ -28,7 +28,7 @@ EOF = '#'
 PAGE_DISK_USAGE_DATA = '/vnc_monitoring/'
 
 
-# Удаляет все пустые элементыв списке
+# Удаляет все пустые элементы в списке
 def remove_simple_element(ls):
     while True:
         try:
@@ -148,7 +148,6 @@ DRIVER_DICT_KEY = 'version'
 ONE_S_VERSION_DICT_KEY = 'one_s_version'
 ARCHITECTURE_DICT_KEY = 'architecture'
 NET_SPEED_DICT_KEY = 'net_speed'
-CPU_TEMPERATURE_DICT_KEY = 'cpu_temperature'
 
 
 def main():
@@ -195,15 +194,6 @@ def main():
             one_s_version = 'Undefined'
     except Exception:
         one_s_version = 'Undefined'
-
-    # Температура процессора
-    try:
-        cpu_temperature_command = r'wmic /namespace:\\root\wmi PATH MSAcpi_ThermalZoneTemperature get CurrentTemperature /value'
-        cpu_temperature = str(subprocess.check_output(cpu_temperature_command, shell=True)).split('\\n')[2].replace('\\r', '').split('=')[1].split('\\')[0]
-        cpu_temperature = int(cpu_temperature) / 10 - 272.15
-        cpu_temperature = int(cpu_temperature)
-    except Exception:
-        cpu_temperature = 'Undefined'
 
     #  ОЗУ и Диски
     ram = psutil.virtual_memory().total  # Оперативная память (Байты)
@@ -301,8 +291,7 @@ def main():
         DRIVER_DICT_KEY: version,
         ONE_S_VERSION_DICT_KEY: one_s_version,
         ARCHITECTURE_DICT_KEY: friendly_arch,
-        NET_SPEED_DICT_KEY: friendly_net_speed,
-        CPU_TEMPERATURE_DICT_KEY: cpu_temperature
+        NET_SPEED_DICT_KEY: friendly_net_speed
     }
 
     try:

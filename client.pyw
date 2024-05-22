@@ -80,7 +80,7 @@ except Exception as e:
 while True:
     try:  # Отлов ошибок
         tvnc_obj = TightVNC(configuration_obj=configuration)
-        tvnc_obj.init_tight_vnc()  # Инициализирует службу TightVNC
+        tvnc_obj.check_running()  # Инициализирует службу TightVNC
 
         connection = SSHConnection(
             configuration_obj=configuration,
