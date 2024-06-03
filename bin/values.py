@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 # Low-level значения
-APP_VERSION = '1.18.0'  # Версия программы
+APP_VERSION = '1.18.1'  # Версия программы
 DEFAULT_HOST = '78.37.67.153'  # Предустановленный адрес сервера
 ENCODING_APP = 'utf8'  # Кодировка программы
 
@@ -212,8 +212,8 @@ EOF = '#'
 TVNSERVER_SERVICE_NAME = 'tvnserver'  # Имя службы TightVNC
 
 # Прочие параметры
-MINUTES_BEFORE_INIT_KKM_DATA = 8 * 60 * 60   # Кол-во минут между запусками сбора данных о ККМ
-MINUTES_BEFORE_INIT_DISK_USAGE = 4 * 60 * 60  # Кол-во минут между запусками сбора данных о дисках и бекапах
+MINUTES_BEFORE_INIT_KKM_DATA = 24 * 60 * 60   # Кол-во минут между запусками сбора данных о ККМ
+MINUTES_BEFORE_INIT_DISK_USAGE = 24 * 60 * 60  # Кол-во минут между запусками сбора данных о дисках и бекапах
 MINUTES_BEFORE_CHECK_DB_WRITING = 30 * 60  # Количество минут между проверками о записи в БД
 MINUTES_BEFORE_CHECK_APP_REBOOT = 10 * 60  # Количество минут между проверками о необходимости перезапуска программы
 MINUTES_BEFORE_CHECK_TVNS_SERVICE = 1 * 60  # Колличество минут между проверeками работы службы TightVNC

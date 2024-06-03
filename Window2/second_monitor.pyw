@@ -95,9 +95,12 @@ CATEGORY_SEC_DICT_KEY = 'category'
 DEVICE_SEC_DICT_KEY = 'device'
 BREND_SEC_DICT_KEY = 'brend'
 VERSION_SEC_DICT_KEY = 'version'
-APP_VERSION = '3.5.5'
+APP_VERSION = '3.6.0'
 start_time = None
 LOG_NAME = 'second_monitor.log'
+need_review_qr = False
+first_else_execution = False
+flag_30_sec = None
 
 
 # Инициализирует logger
@@ -161,7 +164,7 @@ def Startup():
     CloseKey(StartupKey)
 
 
-def ftp_updater():
+def ftp_updater(need_review_qr: bool):
     global thread, thread_update, SLIDER_PATH, day
     now_day = datetime.datetime.today().isoweekday()
     if now_day != day:
@@ -486,9 +489,34 @@ def ftp_updater():
                     except Exception:
                         pass
                     os.execv(sys.executable, ['python'] + [PathFile])
+        with FTP(host='mail.nevis.spb.ru', user='2monitor', passwd='WWGFk3Se0d') as ftp3:  # Соединяемся с FTP сервером
+            if need_review_qr:
+                ftp3.cwd('ReviewQR')
+                filenames = ftp3.nlst()
+                for i in filenames:
+                    if i == '.':
+                        filenames.remove(i)
+                for i in filenames:
+                    if i == '..':
+                        filenames.remove(i)
+                for filename in filenames:
+                    if filename == fr'{config_data.get("apteka")}.png':
+                        host_file = os.path.join(IMAGES_PATH, filename)
+                        with open(host_file, 'wb') as local_file:
+                            ftp3.retrbinary('RETR ' + filename, local_file.write)
+                        time.sleep(1)
+                        try:
+                            thread.cancel()
+                        except Exception:
+                            pass
+                        try:
+                            thread_update.cancel()
+                        except Exception:
+                            pass
+                        os.execv(sys.executable, ['python'] + [PathFile])
     except Exception:
         logger.error('Ошибка при обращении к файловому серверу. Следующая попытка через 1 час. Причина:', exc_info=True)
-    thread = threading.Timer(3600.0, ftp_updater)  # Проверяем каждый час
+    thread = threading.Timer(3600.0, lambda: ftp_updater(False))  # Проверяем каждый час
     thread.start()
 
 
@@ -524,10 +552,23 @@ try:
         os.mkdir(ROOT_PATH + r'\slider_top')
     if os.path.exists(ROOT_PATH + r'\second_monitor.py'):
         os.remove(ROOT_PATH + r'\second_monitor.py')
+
+    with open(PATH_TO_SETTINGS) as config:  # Читаем файл настроек
+        for field in config:
+            sp = field.replace('\n', '').split('=')
+            name, val = sp[0].strip(), sp[-1].strip()
+            config_data[name] = val
+
+    number = config_data.get('apteka')
+
+    if not os.path.exists(fr'{IMAGES_PATH}' + fr'\{number}.png'):
+        need_review_qr = True
+    else:
+        need_review_qr = False
 except Exception:
     pass
 
-ftp_updater()  # Вызываем функцию проверки и скачивания файлов с сервера
+ftp_updater(need_review_qr)  # Вызываем функцию проверки и скачивания файлов с сервера
 
 # Функции для определения геометрии экранов
 user = ctypes.windll.user32
@@ -661,69 +702,38 @@ def deleter():
 def writer():
     global last_time
     i = 1  # Нумерация строк
-    try:
-        t = os.path.getmtime(PATH_TO_FILE)
-        if t > last_time:
-            deleter()
-            thanks_label.pack_forget()
-            treeview_purchase.pack(fill='both', expand=True)
-            meds = [eval(x) for x in open(PATH_TO_FILE, 'r', encoding='ANSI').read().rstrip('\n').split('\n')]
-            for med in meds[:-1]:  # Вставка в чек
-                med = list(med)
-                med.insert(0, i)
-                # if med[1] in 'презерватив':
-                #     med[1] = 'Товар личной гигиены'
-                if abs(monitor_areas()[1][0]) == 1080 or abs(monitor_areas()[0][0]) == 1080:
-                    if len(med[1]) > 30:
-                        tmp = med[1]
-                        string = tmp[:30] + '\n' + tmp[30:]
-                        med[1] = string
-                else:
-                    if len(med[1]) > 23:
-                        tmp = med[1]
-                        string = tmp[:23] + '\n' + tmp[23:]
-                        med[1] = string
-                med[2] += ' ₽'
-                med[3] += ' шт.'
-                med[4] += ' ₽'
-                med = tuple(med)
-                if i % 2 != 0:
-                    id_list.append(treeview_purchase.insert('', END, values=med, tags='first_color'))
-                else:
-                    id_list.append(treeview_purchase.insert('', END, values=med, tags='second_color'))
-                i += 1
-            itog_vals = [('  Скидка: ', f'{meds[-1][1]} ₽  '), ('  Итого: ', f'{meds[-1][2]} ₽  ')]
-            oplat_vals = [('  К оплате: ', f'{meds[-1][3]} ₽  ')]
-            for val in itog_vals:
-                id_itog.append(treeview_itog.insert('', END, values=val, tags='TkTextFont'))
-            for val in oplat_vals:
-                if abs(monitor_areas()[1][0]) == 1080 or abs(monitor_areas()[0][0]) == 1080:
-                    id_oplat.append(treeview_oplat.insert('', END, values=val, tags='TkTextFont1'))
-                else:
-                    id_oplat.append(treeview_oplat.insert('', END, values=val, tags='TkTextFont1.5'))
-            cashback_text_label.configure(text=f'С данного чека\n Вам начислен КешБэк: {meds[-1][0]} бон. ₽')
-            update_treeview_text()
-            last_time = t
-    except SyntaxError:
-        treeview_purchase.pack_forget()
-        thanks_label.pack(fill='both', expand=True)
-        cashback_text_label.configure(text='С данного чека\n Вам начислен КешБэк: 0 бон. ₽')
-        itog_vals = [('  Скидка: ', '0 ₽  '), ('  Итого:', '0 ₽  ')]
-        oplat_vals = [('  К оплате: ', '0 ₽  ')]
-        for val in itog_vals:
-            id_itog.append(treeview_itog.insert('', END, values=val, tags='TkTextFont'))
-        for val in oplat_vals:
-            if abs(monitor_areas()[1][0]) == 1080 or abs(monitor_areas()[0][0]) == 1080:
-                id_oplat.append(treeview_oplat.insert('', END, values=val, tags='TkTextFont1'))
-            else:
-                id_oplat.append(treeview_oplat.insert('', END, values=val, tags='TkTextFont1.5'))
-    except FileNotFoundError:
+    t = os.path.getmtime(PATH_TO_FILE)
+    if t > last_time:
         deleter()
-        treeview_purchase.pack_forget()
-        thanks_label.pack(fill='both', expand=True)
-        cashback_text_label.configure(text='С данного чека\n Вам начислен КешБэк: 0 бон. ₽')
-        itog_vals = [('  Скидка: ', '0 ₽  '), ('  Итого:', '0 ₽  ')]
-        oplat_vals = [('  К оплате: ', '0 ₽  ')]
+        thanks_label.pack_forget()
+        treeview_purchase.pack(fill='both', expand=True)
+        meds = [eval(x) for x in open(PATH_TO_FILE, 'r', encoding='ANSI').read().rstrip('\n').split('\n')]
+        for med in meds[:-1]:  # Вставка в чек
+            med = list(med)
+            med.insert(0, i)
+            # if med[1] in 'презерватив':
+            #     med[1] = 'Товар личной гигиены'
+            if abs(monitor_areas()[1][0]) == 1080 or abs(monitor_areas()[0][0]) == 1080:
+                if len(med[1]) > 30:
+                    tmp = med[1]
+                    string = tmp[:30] + '\n' + tmp[30:]
+                    med[1] = string
+            else:
+                if len(med[1]) > 23:
+                    tmp = med[1]
+                    string = tmp[:23] + '\n' + tmp[23:]
+                    med[1] = string
+            med[2] += ' ₽'
+            med[3] += ' шт.'
+            med[4] += ' ₽'
+            med = tuple(med)
+            if i % 2 != 0:
+                id_list.append(treeview_purchase.insert('', END, values=med, tags='first_color'))
+            else:
+                id_list.append(treeview_purchase.insert('', END, values=med, tags='second_color'))
+            i += 1
+        itog_vals = [('  Скидка: ', f'{meds[-1][1]} ₽  '), ('  Итого: ', f'{meds[-1][2]} ₽  ')]
+        oplat_vals = [('  К оплате: ', f'{meds[-1][3]} ₽  ')]
         for val in itog_vals:
             id_itog.append(treeview_itog.insert('', END, values=val, tags='TkTextFont'))
         for val in oplat_vals:
@@ -731,7 +741,10 @@ def writer():
                 id_oplat.append(treeview_oplat.insert('', END, values=val, tags='TkTextFont1'))
             else:
                 id_oplat.append(treeview_oplat.insert('', END, values=val, tags='TkTextFont1.5'))
-    window.after(1000, writer)
+        cashback_text_label.configure(text=f'С данного чека\n Вам начислен КешБэк: {meds[-1][0]} бон. ₽')
+        check_display_mode()
+        update_treeview_text()
+        last_time = t
 
 
 # Инициализация окон
@@ -877,8 +890,32 @@ nametofont("TkDefaultFont").configure(size=19, family='Montserrat Medium')  # С
 frame_for_treeview = tk.Frame(frame_left)  # Фрейм для таблицы чека
 frame_for_treeview.pack(fill='both', expand=True)
 
-thanks_label = tk.Label(frame_for_treeview, text='Спасибо за покупку!', background='#d6f8ff', justify='center',
-                        anchor='center', font=('Montserrat', 40), height=9)
+with open(PATH_TO_SETTINGS) as config:  # Читаем файл настроек
+    for field in config:
+        sp = field.replace('\n', '').split('=')
+        name, val = sp[0].strip(), sp[-1].strip()
+        config_data[name] = val
+
+number = config_data.get('apteka')
+
+if os.path.exists(fr'{IMAGES_PATH}' + fr'\{number}.png'):
+    image = Image.open(fr'{IMAGES_PATH}' + fr'\{number}.png')
+    review_qr = ImageTk.PhotoImage(image)
+    if abs(monitor_areas()[1][0]) == 1080 or abs(monitor_areas()[0][0]) == 1080:
+        thanks_label = tk.Label(frame_for_treeview, font=('Montserrat', 31),
+                               text='Спасибо за покупку!\n\n\nОтсканируйте QR-код и оставьте отзыв!\nОн поможет нам стать лучше.\n\n',
+                               image=review_qr, compound="bottom", background='#d6f8ff', height=810, justify='center')
+    else:
+        thanks_label = tk.Label(frame_for_treeview, font=('Montserrat', 28),
+                               text='Спасибо за покупку!\n\n\nОтсканируйте QR-код и оставьте отзыв!\nОн поможет нам стать лучше.\n\n',
+                               image=review_qr, compound="bottom", background='#d6f8ff', height=1080, justify='center')
+else:
+    if abs(monitor_areas()[1][0]) == 1080 or abs(monitor_areas()[0][0]) == 1080:
+        thanks_label = tk.Label(frame_for_treeview, text='Спасибо за покупку!', background='#d6f8ff', justify='center',
+                                anchor='center', font=('Montserrat', 40), height=810)
+    else:
+        thanks_label = tk.Label(frame_for_treeview, text='Спасибо за покупку!', background='#d6f8ff', justify='center',
+                                anchor='center', font=('Montserrat', 40), height=1080)
 
 columns = ('nom', 'name', 'cost', 'count', 'sum')  # Инициализация столбиков
 if abs(monitor_areas()[1][0]) == 1080 or abs(monitor_areas()[0][0]) == 1080:
@@ -1001,7 +1038,7 @@ except Exception:
             im3 = Image.open(IMAGES_PATH + r'\LOF8401080.png')
     default_cashback = ImageTk.PhotoImage(im3)
 
-label_image = tk.Label(frame_right, bg='green', width=1080, height=1080) #bg='#d6f8ff'
+label_image = tk.Label(frame_right, bg='green', width=1080, height=1080)
 
 
 # Подгон размеров фоток под лейбл (фрейм)
@@ -1071,7 +1108,42 @@ def check_display_mode():
                 label_image.pack(expand=True, fill='both')
                 image_object = QR_LIST[0]
                 label_image.config(image=image_object, font=('Montserrat', 23), background='#d6f8ff', borderwidth="0", relief="flat", anchor="center", text="QR КОД ДЛЯ ОПЛАТЫ ПО СБП:", fg='black', compound='bottom', pady=30)
-    window.after(3000, check_display_mode)
+
+
+def file_checker():
+    if os.path.exists(PATH_TO_FILE):
+        return True
+    else:
+        return False
+
+
+def controller():
+    global first_else_execution, flag_30_sec
+    if file_checker():
+        if flag_30_sec is not None:
+            window.after_cancel(flag_30_sec)
+            flag_30_sec = None
+        writer()
+        check_display_mode()
+        first_else_execution = True
+    else:
+        deleter()
+        treeview_purchase.pack_forget()
+        thanks_label.pack(fill='both', expand=True)
+        cashback_text_label.configure(text='С данного чека\n Вам начислен КешБэк: 0 бон. ₽')
+        itog_vals = [('  Скидка: ', '0 ₽  '), ('  Итого:', '0 ₽  ')]
+        oplat_vals = [('  К оплате: ', '0 ₽  ')]
+        for val in itog_vals:
+            id_itog.append(treeview_itog.insert('', END, values=val, tags='TkTextFont'))
+        for val in oplat_vals:
+            if abs(monitor_areas()[1][0]) == 1080 or abs(monitor_areas()[0][0]) == 1080:
+                id_oplat.append(treeview_oplat.insert('', END, values=val, tags='TkTextFont1'))
+            else:
+                id_oplat.append(treeview_oplat.insert('', END, values=val, tags='TkTextFont1.5'))
+        if first_else_execution:
+            flag_30_sec = window.after(30000, check_display_mode)
+            first_else_execution = False
+    window.after(1000, controller)
 
 
 try:
@@ -1083,5 +1155,5 @@ window.bind('<Control-Alt-KeyPress>', close)
 slider = Slider(main_window, resize_big_image_files)
 slider2 = Slider(frame_right, resize_image_files)
 check_display_mode()
-writer()
+controller()
 window.mainloop()
