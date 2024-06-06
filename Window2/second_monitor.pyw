@@ -95,7 +95,7 @@ CATEGORY_SEC_DICT_KEY = 'category'
 DEVICE_SEC_DICT_KEY = 'device'
 BREND_SEC_DICT_KEY = 'brend'
 VERSION_SEC_DICT_KEY = 'version'
-APP_VERSION = '3.6.0'
+APP_VERSION = '3.6.1'
 start_time = None
 LOG_NAME = 'second_monitor.log'
 need_review_qr = False
@@ -707,7 +707,10 @@ def writer():
         deleter()
         thanks_label.pack_forget()
         treeview_purchase.pack(fill='both', expand=True)
-        meds = [eval(x) for x in open(PATH_TO_FILE, 'r', encoding='ANSI').read().rstrip('\n').split('\n')]
+        try:
+            meds = [eval(x) for x in open(PATH_TO_FILE, 'r', encoding='ANSI').read().rstrip('\n').split('\n')]
+        except SyntaxError:
+            return
         for med in meds[:-1]:  # Вставка в чек
             med = list(med)
             med.insert(0, i)
