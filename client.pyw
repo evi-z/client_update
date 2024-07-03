@@ -34,17 +34,17 @@ settings = SettingsObject(
 )  # Инициализируем настройки
 
 
-# Если запущен не от адиминстратора
+# Если запущен не от администратора
 if not is_admin():
     settings.logger.info('client перезапущен с правами администратора')
     path_to_client = get_correct_path()  # Получаем корректный путь до client
-    arg = sys.argv[1:]  # Аргументы коммандной строки
+    arg = sys.argv[1:]  # Аргументы командной строки
 
     argv_to_ex = [path_to_client]  # Список для ShellExecuteW
     if arg:  # Если есть аргументы - добавляем
         argv_to_ex.extend(arg)
 
-    # Перезапускаем интрепретатор с правами админа
+    # Перезапускаем интерпретатор с правами админа
     windll.shell32.ShellExecuteW(0, 'runas', sys.executable, ' '.join(argv_to_ex), None, 1)
     sys.exit(0)  # Завершаем работу этого скрипта
 
@@ -58,11 +58,10 @@ try:
 except Exception:
     settings.logger.error(f'Ошибка в инициализации первичных скриптов:', exc_info=True)
 
-# Инициалиция loader-a
 try:
-    loader = Loader(settings_obj=settings)  # Объект загрузчика
-    if loader.need_init_loader():
-        loader.start_threading()  # Запускаем поток проверки обновления
+    thread = Thread(target=ftp_client_updater)
+    thread.daemon = True
+    thread.start()
 except Exception:
     settings.logger.error(f'Ошибка в инициализации loader:', exc_info=True)
 
@@ -108,14 +107,14 @@ while True:
     except ConnectionToPortDaemonError:  # Перехватываем снизу
         pass
 
-    except (ConnectionRefusedError, ConnectionResetError):  # Подключение сброшенно со стороны сервера
-        settings.logger.error(f'Подлючение к серверу {configuration.host} было сброшенно со стороны сервера')
+    except (ConnectionRefusedError, ConnectionResetError):  # Подключение сброшено со стороны сервера
+        settings.logger.error(f'Подключение к серверу {configuration.host} было сброшено со стороны сервера')
 
         sleep_time = random.randint(5, 20)  # Ставим время от 5 до 20 для повторного подключения
         time.sleep(sleep_time)
 
     except socket.gaierror:
-        settings.logger.error(f'Некореектный адрес [{HOST_PHARM}]')
+        settings.logger.error(f'Некорректный адрес [{HOST_PHARM}]')
         time.sleep(5)
 
     except ClientException:  # Программная ошибка (отлавливаемая)

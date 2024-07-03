@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 # Low-level значения
-APP_VERSION = '1.18.2'  # Версия программы
+APP_VERSION = '2.0.0'  # Версия программы
 DEFAULT_HOST = '78.37.67.153'  # Предустановленный адрес сервера
 ENCODING_APP = 'utf8'  # Кодировка программы
 
@@ -17,7 +17,7 @@ REG_ROOT_PATH = r'Software\NevisVNClient'
 
 # Библиотеки программы
 APP_LIBRARY = [
-    'asyncssh', 'PyQt5', 'psutil', 'py-cpuinfo', 'GitPython', 'pyshtrih', 'schedule', 'pypiwin32', 'pywin32', 'requests'
+    'asyncssh', 'PyQt5', 'psutil', 'py-cpuinfo', 'pyshtrih', 'schedule', 'pypiwin32', 'pywin32', 'requests'
 ]
 
 # Ключи реестра
@@ -157,8 +157,7 @@ KEY_REG_PATH = os.path.join(BIN_DIR_NAME, KEY_REG_NAME)
 VNC_SERVICE_REG_FILE = os.path.join(BIN_DIR_NAME, VNC_SERVICE_REG_NAME)
 
 # Абсолютные пути
-UPDATE_GIT_PATH = os.path.join(ROOT_PATH, BIN_DIR_NAME, 'update')
-BACKUP_DIR_PATH = os.path.join(ROOT_PATH, BIN_DIR_NAME, 'backup')
+UPDATE_PATH = os.path.join(ROOT_PATH, BIN_DIR_NAME, 'FTPupdate')
 
 # Секции конфигурации
 APP_SECTION = 'App'

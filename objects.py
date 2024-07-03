@@ -1,6 +1,7 @@
 import asyncio
 import configparser
 import datetime
+import hashlib
 from decimal import Decimal, InvalidOperation
 import json
 import logging
@@ -13,7 +14,8 @@ import winreg as reg
 import time
 from importlib import import_module
 from subprocess import Popen, PIPE, run, STDOUT, DEVNULL
-from threading import Thread
+from threading import Thread, Timer
+from ftplib import FTP
 
 from bin.values import *
 from errors import *
@@ -23,9 +25,7 @@ for _ in range(2):  # 2 попытки
         import requests
         import psutil
         import asyncssh
-        import git.exc
         import schedule
-        from git import Repo
         from glob import glob
         import win32com.client
 
@@ -344,160 +344,87 @@ class ConfigurationsObject:
         return initialization_dict
 
 
-# Объект загрузчика
-class Loader:
-    def __init__(self, *, settings_obj: SettingsObject):
-        self.settings = settings_obj  # Объект настроек программы
-        self.url_repository = f'https://@github.com/fckgm/client_update.git'  # Адрес репозитория
-        self.update_git_path = UPDATE_GIT_PATH  # Путь к локальному репозиторию
-        self.first_init_repo = False  # Булево первичной инициализации
-        self.thread_name = 'LoaderThread'  # Имя потока
-        self.uptime = MINUTES_BEFORE_CHECK_LOADER  # Как часто необходимо проверять обновления
-        self.reg_key = REG_LAST_RUN_LOADER  # Ключ в реестре
-
-        try:
-            # Создаём файл конфигурации только для чтения (НУЖЕН ДЛЯ TEST_UPDATE)
-            self.configuration = ConfigurationsObject.init_from_config_file(
-                settings=self.settings,
-                only_check=True
-            )
-        except Exception:  # В случае ошибки пишем None
-            self.configuration = None
-
-    # Возвращает булево, необходимо ли инициализировать loader
-    @staticmethod
-    def need_init_loader() -> bool:
-        argv_list = SettingsObject.get_argv_list(argv=sys.argv)  # Получаем список аргументов коммандной строки
-
-        if DONT_NEED_INIT_LOADER_ARG in argv_list:  # Если есть флаг в списке
-            return False
-        else:  # Иначе
-            return True
-
-    # Инициализация репозитория обновления
-    def _init_loader(self):
-        try:
-            self.repo = Repo(self.update_git_path)  # Создаём репозиторий
-        except (git.exc.NoSuchPathError, git.exc.InvalidGitRepositoryError):  # Если нет директории или она некорректна
-            self.repo = self._init_update_repository()  # Инициализируем репозиторий
-            self.first_init_repo = True  # Первое обновление
-
-    # Проводит первичную настройку репозитория
-    def _init_update_repository(self, try_remove_flag=False):  # Флаг попытки удаления старого репозитория
-        self.settings.logger.info('Первичная инициализаиця репозитория обновления')
-        try:
-            repo_init = Repo.clone_from(self.url_repository, UPDATE_GIT_PATH)  # Клонируем репозиторий
-        except git.exc.GitCommandError:  # Ошибка клонирования (некоректная деинсталяция)
-            self.settings.logger.warning('Ошибка клонирования git репозитория. Попытка очистки старых версий программы')
-            assert not try_remove_flag, 'Попытка очистить репозиторий не удалась'
-            shutil.rmtree(UPDATE_GIT_PATH)  # Удаляем старый репозиторий
-            time.sleep(1)  # На всякий
-            # Устанавливаем флаг попытки удаления и заново вызываем функцию
-            repo_init = self._init_update_repository(True)
-
-        return repo_init
-
-    # Запускает updater-a
-    def _run_updater(self):
-        # Первый [1] аргумент - путь к client (root_file_path)
-        # Второй [2] аргумент - аргумент корректности запуска
-        Popen([sys.executable, os.path.join(ROOT_PATH, UPDATER_MODULE_NAME), self.settings.root_file_path,
-               UPDATER_RUN_ARG])
-        time.sleep(1)
-
-    # Запуск обновления
-    def _start(self):
-        self._init_loader()  # Инициализируем репозиторий
-        current_commit = self.repo.head.commit  # Получаем текущщий коммит
-        self.repo.remotes.origin.pull()  # git pull
-        self._set_last_run()  # Устанавливаем время запуска в реестр
-
-        # Если коммиты различаются, либо первое обновление
-        if current_commit != self.repo.head.commit or self.first_init_repo:
-            self.settings.logger.info(f'Получено обновление, запуск {UPDATER_MODULE_NAME}')
-
-            self._run_updater()  # Запускаем update-r
-            sys.exit(0)  # Завершаем выполнение
-
-    # Устанавливет значение последнего запуска в реестр
-    def _set_last_run(self):
-        now = str(time.time())  # Получаем текущее время (с начала эпохи)
-        self.settings.reg_data.set_reg_key(self.reg_key, now)
-
-    # Проверяет, необъодимо ли выполнить скрипт в потоке
-    def _check_need_init(self, last_run):
-        return SecondaryScripts.delta_need_init(last_run, self.uptime)  # Разница, между последним запуском и uptime
-
-    # Поток проверки необходимости обновления
-    def _thread(self):
-        while True:
-            try:
-                # Пытаемся получить значение реестра
-                last_run = float(self.settings.reg_data.get_reg_value(self.reg_key))
-            except RegKeyNotFound:  # Если ключа нет
-                self._start()  # Запускаем сбор данных
-                continue
-
-            # Если необходимо выполнить kkm_data, либо цикл только запущен
-            if self._check_need_init(last_run) or self.start_flag:
-                self._start()  # Инициализируем сбор данных
-
-            self.start_flag = False  # Продолжаем по условию
-
-            time.sleep(10 * 60)  # Проверяем каждые 10 минут
-
-    # Единоразовая проверка обновления (ПОВЕРЬ, ТАК НАДО! НЕ ВПИХИВАЙ ЭТО В _thread!)
-    def _once_run(self):
-        try:
-            # Пытаемся получить значение реестра
-            last_run = float(self.settings.reg_data.get_reg_value(self.reg_key))
-        except RegKeyNotFound:  # Если ключа нет
-            self._start()  # Запускаем сбор данных
-            self.start_flag = False  # Продолжаем по условию
-            return  # Проверка не требуется
-
-        # Если необходимо выполнить kkm_data, либо цикл только запущен
-        if self._check_need_init(last_run) or self.start_flag:
-            self._start()  # Инициализируем сбор данных
-
-        self.start_flag = False  # Продолжаем по условию
-
-    def _start_test_update(self):  # TODO Доделать
+def ftp_client_updater():
+    try:
+        if os.path.exists(r'C:\Program Files (x86)\Git\unins000.exe'):
+            run(f'taskkill /f /im git.exe', stdin=PIPE, stdout=PIPE, stderr=PIPE)
+            time.sleep(1.0)
+            run(r'C:\Program Files (x86)\Git\unins000.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-')
+            time.sleep(1.0)
+        elif os.path.exists(r'C:\Program Files\Git\unins000.exe'):
+            run(f'taskkill /f /im git.exe', stdin=PIPE, stdout=PIPE, stderr=PIPE)
+            time.sleep(1.0)
+            run(r'C:\Program Files\Git\unins000.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-')
+            time.sleep(1.0)
+    except Exception:
         pass
+    thread = Timer(1800.0, ftp_client_updater)
+    thread.start()
+    reg_data = RegData()
+    reg_key = REG_LAST_RUN_LOADER
+    update_flag = False
+    try:
+        last_update = int(float(reg_data.get_reg_value(reg_key)))
+        print(last_update)
+    except RegKeyNotFound:
+        reg_data.set_reg_key(reg_key, '0')
+        last_update = 0
 
-    def init_test_update(self):  # TODO Доделать
-        if self.configuration.group != GROUP_PHARMACY_INT:  # Если не аптека
-            return
+    # Функция для вычисления SHA1 хэша файла
+    def calculate_sha1(file_path):
+        sha1 = hashlib.sha1()
+        with open(file_path, 'rb') as file:
+            while True:
+                data = file.read(65536)  # Читаем блок данных
+                if not data:
+                    break
+                sha1.update(data)
+        return sha1.hexdigest()
 
-        if self.check_need_init_test_update():
-            pass
+    try:
+        if not os.path.exists(UPDATE_PATH):
+            os.mkdir(UPDATE_PATH)
 
-    # Проверяет, необходимо ли установить тестовое обновление
-    def check_need_init_test_update(self):  # TODO Доделать
-        init_dict = {
-            PHARMACY_KEY: self.configuration.pharmacy_or_subgroup,
-            DEVICE_KEY: self.configuration.device_or_name,
-            APP_VERSION_KEY: APP_VERSION
-        }
-
-        hello_dict = SSHConnection.get_hello_dict(CHECK_TEST_CLIENT_UPDATE_MODE, init_dict)  # Словарь инициализации
-        sock = SSHConnection.get_tcp_socket()  # Сокет
-        sock.connect((self.configuration.host, 12113))  # TODO
-        sock.send(hello_dict.encode())  # Отправляем данные
-
-        need = SSHConnection.get_data_from_socket(sock)  # Получаем данные
-
-        return need
-
-    # Запуск потока обновления
-    def start_threading(self):
-        self.start_flag = True  # Флаг первой итерации (выполняется вне зависимости от параметров реестра)
-        # Единожды выполняет загрузчик в основном потоке / Из-за непредсказуемости процессов, что будут идти параллельно
-        self._once_run()
-
-        thread = Thread(target=self._thread)  # Создаёт поток контроля
-        thread.setName(self.thread_name)  # Задаём имя потоку
-        thread.start()  # Запускает поток
+        with FTP(host='mail.nevis.spb.ru', user='vncupdate', passwd='kOzqVyHSWy') as ftp:  # Соединяемся с FTP сервером
+            for name, facts in ftp.mlsd():
+                if name == 'ClientUpdate':
+                    servertime = facts.get('modify')  # Узнаем время изменения папки на сервере
+                    print(servertime)
+            if int(servertime) > last_update:  # Если время изменения папки на сервере больше, чем последнее время в реестре
+                for f in os.listdir(UPDATE_PATH):
+                    os.remove(os.path.join(UPDATE_PATH, f))  # Удаляем все файлы
+                ftp.cwd('ClientUpdate')  # Меняем каталог на ClientUpdate
+                filenames = ftp.nlst()  # Узнаем список файлов
+                for i in filenames:
+                    if i == '.':
+                        filenames.remove(i)  # Удаляем папку .
+                for i in filenames:
+                    if i == '..':
+                        filenames.remove(i)  # Удаляем папку ..
+                for filename in filenames:
+                    host_file = os.path.join(UPDATE_PATH, filename)
+                    with open(host_file, 'wb') as local_file:
+                        ftp.retrbinary('RETR ' + filename, local_file.write)  # Скачиваем файлы
+                update_flag = True
+        if update_flag:
+            # Хэш файл оригинала с сервера
+            original_file_path = os.path.join(UPDATE_PATH, 'hashsum.sha1')
+            # Скачанный файл
+            downloaded_file_path = os.path.join(UPDATE_PATH, 'update.zip')
+            # Получаем хэш оригинального файла
+            with open(original_file_path) as file:
+                original_file_sha1 = file.readline().strip()
+            # Вычисляем SHA1 хэш скачанного файла
+            downloaded_file_sha1 = calculate_sha1(downloaded_file_path)
+            # Проверяем совпадение хэшей
+            if original_file_sha1 == downloaded_file_sha1:
+                reg_data.set_reg_key(reg_key, servertime)
+                Popen([sys.executable, os.path.join(ROOT_PATH, UPDATER_MODULE_NAME)])
+                thread.cancel()
+                time.sleep(1)
+                sys.exit(0)
+    except Exception:
+        pass
 
 
 # Объект инициализации и контроля службы TightVNC
